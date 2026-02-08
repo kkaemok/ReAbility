@@ -1,0 +1,22 @@
+name: ReAbility
+version: '1.8'
+main: org.kkaemok.reAbility.ReAbility
+api-version: '1.21'
+depend: [LuckPerms, ProtocolLib]
+
+commands:
+  능력:
+    description: 능력 뽑기 종이를 꺼냅니다.
+    usage: /능력 <뽑기>
+  rtp:
+    description: 랜덤 텔레포트를 합니다.
+    usage: /rtp
+  tpa:
+    description: 플레이어에게 텔레포트를 요청합니다.
+    usage: /tpa <플레이어|수락|거부>
+  길드:
+    description: 길드 관련 커맨드.
+    usage: /길드
+  길드챗:
+    description: 길드챗을 활성화/비활성화 합니다
+    usage: /길드챗

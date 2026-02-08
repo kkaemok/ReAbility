@@ -1,0 +1,94 @@
+# ReAbility Plugin Configuration
+
+# 월드 기본 설정 (기획안 반영)
+world-settings:
+  # 플레이어 기본 체력 (2줄 = 20하트 = 40.0)
+  default-max-health: 40.0
+  # 도끼 데미지 보정 (검보다 2 낮게)
+  axe-damage-reduction: 2.0
+  # 월드 보더 범위
+  border:
+    min-x: -30000
+    min-z: -30000
+    max-x: 30000
+    max-z: 30000
+
+# 채굴 제한 시스템 (기획안: 다이아 1시간 100개 / 잔해 3시간 2개)
+mining-limits:
+  diamond:
+    amount: 100
+    miner-bonus: 700    # 광부 능력자용
+    reset-interval-ticks: 72000 # 1시간 (20틱 * 3600초)
+  ancient-debris:
+    amount: 2
+    miner-bonus: 7      # 광부 능력자용
+    reset-interval-ticks: 216000 # 3시간 (20틱 * 10800초)
+
+# 능력 시스템 설정
+ability-settings:
+  # 자동 초기화 주기 (24시간)
+  auto-reroll-hours: 24
+  # 등급별 기본 유지 기간 (밀리초 단위 계산용)
+  durations:
+    D: 86400000
+    C: 86400000
+    B: 86400000
+    A: 86400000
+    S: 86400000
+    SS: 86400000
+
+# 텔레포트 설정 (집순이 및 공간지배자 반영)
+teleport-settings:
+  tpa-cooldown-default: 600 # 10분
+  tpa-cooldown-homelover: 60 # 1분 (집순이)
+  rtp-cooldown-default: 600
+  rtp-cooldown-space-lord: 60 # 1분 (공간 지배자)
+
+# 스킬 사용 시 소모 아이템 및 수량
+skill-costs:
+  phoenix_evade:
+    item: "DIAMOND"
+    amount: 50
+  gunslinger_burst:
+    item: "DIAMOND"
+    amount: 50
+  fighter_sunlight:
+    item: "DIAMOND"
+    amount: 100
+  wolfman_time:
+    item: "DIAMOND"
+    amount: 100
+  ghost_skill:
+    item: "DIAMOND"
+    amount: 50
+  miner_alchemy:
+    item: "IRON_INGOT"
+    amount: 50
+  joker_spy:
+    item: "EMERALD"
+    amount: 50
+  joker_illusion:
+    item: "NETHERITE_SCRAP"
+    amount: 2
+  joker_death_trick:
+    item: "DIAMOND"
+    amount: 100
+  space_lord_tp:
+    item: "DIAMOND"
+    amount: 100
+    extra_item: "NETHERITE_INGOT"
+    extra_amount: 1
+  space_lord_cut:
+    item: "DIAMOND"
+    amount: 50
+  chronos_roar:
+    item: "NETHERITE_INGOT"
+    amount: 2
+  chronos_cut:
+    item: "NETHERITE_INGOT"
+    amount: 3
+
+# 메시지 설정
+messages:
+  prefix: "<gold>[ReAbility] <white>"
+  reroll-announce: "<yellow>오늘은 <white>%ability% <yellow>능력을 획득하였습니다!"
