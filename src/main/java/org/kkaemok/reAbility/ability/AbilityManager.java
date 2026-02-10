@@ -4,10 +4,13 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.list.*;
 import org.kkaemok.reAbility.data.PlayerData;
@@ -63,7 +66,6 @@ public class AbilityManager {
                 data.setAbilityName(playerConfig.getString(path + "ability"));
                 data.setExpiryTime(playerConfig.getLong(path + "expiry"));
 
-                // --- 채굴 데이터 로드 ---
                 data.setMinedDiamond(playerConfig.getInt(path + "mined-diamond", 0));
                 data.setLastDiamondReset(playerConfig.getLong(path + "last-diamond-reset", System.currentTimeMillis()));
                 data.setMinedDebris(playerConfig.getInt(path + "mined-debris", 0));
@@ -75,14 +77,13 @@ public class AbilityManager {
     }
 
     private void registerAbilities() {
-        register(new Eater());
+        register(new Eater(plugin));
         register(new Lighter());
         register(new HomeLover());
-        register(new Fisherman());
-        // --- C등급 능력 추가 (수정됨: GuildManager 인자 추가) ---
+        register(new Fisherman(plugin));
         register(new Lovebird(plugin, plugin.getGuildManager()));
         register(new Zombie());
-        register(new Bomber());
+        register(new Bomber(plugin));
         register(new Phoenix(plugin));
         register(new Gunslinger(plugin));
         register(new Fighter(plugin));
@@ -124,7 +125,8 @@ public class AbilityManager {
                 .toList();
 
         if (possibleAbilities.isEmpty()) {
-            player.sendMessage(Component.text("해당 등급(" + grade.getLabel() + ")에 등록된 능력이 없습니다!", NamedTextColor.RED));
+            player.sendMessage(Component.text("해당 등급(" + grade.getLabel() + ")에 등록된 능력이 없습니다!",
+                    NamedTextColor.RED));
             return;
         }
 
@@ -137,7 +139,12 @@ public class AbilityManager {
 
         if (data.getAbilityName() != null) {
             AbilityBase old = registeredAbilities.get(data.getAbilityName());
-            if (old != null) old.onDeactivate(player);
+            if (old != null) {
+                old.onDeactivate(player);
+                if (isHighGrade(old.getGrade())) {
+                    removeHighGradeBuffs(player);
+                }
+            }
         }
 
         data.setAbilityName(ability.getName());
@@ -145,15 +152,18 @@ public class AbilityManager {
         data.setExpiryTime(System.currentTimeMillis() + duration);
 
         ability.onActivate(player);
+        if (isHighGrade(ability.getGrade())) {
+            applyHighGradeBuffs(player);
+        }
 
         player.sendMessage(Component.empty());
-        player.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD));
-        player.sendMessage(Component.text("  새로운 능력을 획득했습니다!", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("============", NamedTextColor.GOLD));
+        player.sendMessage(Component.text("  새로운 능력을 획득하였습니다!", NamedTextColor.YELLOW));
         player.sendMessage(Component.text("  등급: ").color(NamedTextColor.WHITE)
                 .append(Component.text(ability.getGrade().getLabel()).decorate(TextDecoration.BOLD)));
         player.sendMessage(Component.text("  능력: ").color(NamedTextColor.WHITE)
                 .append(Component.text(ability.getDisplayName(), NamedTextColor.AQUA)));
-        player.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD));
+        player.sendMessage(Component.text("============", NamedTextColor.GOLD));
     }
 
     public void handleJoin(Player player) {
@@ -161,7 +171,6 @@ public class AbilityManager {
         PlayerData data = getPlayerData(uuid);
 
         if (data.getAbilityName() == null || data.isExpired()) {
-            // --- DAILY가 Enum에 없으므로 여기서 직접 확률 계산 로직 수행 ---
             Map<AbilityGrade, Double> dailyWeights = new EnumMap<>(AbilityGrade.class);
             dailyWeights.put(AbilityGrade.D, 50.0);
             dailyWeights.put(AbilityGrade.C, 30.0);
@@ -183,26 +192,53 @@ public class AbilityManager {
             }
 
             assignAbilityByGrade(player, rolledGrade);
-            player.sendMessage(Component.text("능력 기간이 만료되어 새로운 능력이 부여되었습니다!", NamedTextColor.GREEN));
+            AbilityBase current = registeredAbilities.get(getPlayerData(uuid).getAbilityName());
+            if (current != null) {
+                player.sendMessage(Component.text("오늘은 " + current.getDisplayName() + " 능력을 획득하였습니다!",
+                        NamedTextColor.GREEN));
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+            }
         } else {
             AbilityBase current = registeredAbilities.get(data.getAbilityName());
             if (current != null) {
                 current.onActivate(player);
+                if (isHighGrade(current.getGrade())) {
+                    applyHighGradeBuffs(player);
+                }
                 long timeLeftHours = (data.getExpiryTime() - System.currentTimeMillis()) / (1000 * 60 * 60);
-                player.sendMessage(Component.text("현재 능력: " + current.getDisplayName() + " (남은 시간: " + timeLeftHours + "시간)", NamedTextColor.YELLOW));
+                player.sendMessage(Component.text("현재 능력: " + current.getDisplayName()
+                        + " (남은 시간: " + timeLeftHours + "시간)", NamedTextColor.YELLOW));
             }
         }
+    }
+
+    private boolean isHighGrade(AbilityGrade grade) {
+        return grade == AbilityGrade.S || grade == AbilityGrade.SS;
+    }
+
+    private void applyHighGradeBuffs(Player player) {
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 0, false, false));
+    }
+
+    private void removeHighGradeBuffs(Player player) {
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+        player.removePotionEffect(PotionEffectType.REGENERATION);
     }
 
     public PlayerData getPlayerData(UUID uuid) {
         return playerDataMap.computeIfAbsent(uuid, PlayerData::new);
     }
 
+    public AbilityBase getAbilityByName(String name) {
+        return registeredAbilities.get(name);
+    }
+
     public void savePlayerData(UUID uuid) {
         PlayerData data = playerDataMap.get(uuid);
         if (data == null) return;
 
-        String path = "players." + uuid.toString() + ".";
+        String path = "players." + uuid + ".";
         playerConfig.set(path + "ability", data.getAbilityName());
         playerConfig.set(path + "expiry", data.getExpiryTime());
         playerConfig.set(path + "mined-diamond", data.getMinedDiamond());

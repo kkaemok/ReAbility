@@ -1,7 +1,6 @@
 package org.kkaemok.reAbility.guild;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.luckperms.api.LuckPerms;
@@ -106,7 +105,7 @@ public class GuildManager {
 
     public void toggleGuildChat(Player player) {
         if (getGuildByMember(player.getUniqueId()) == null) {
-            player.sendMessage(parseColor("<red>[!] 소속된 길드가 없어 길드 채팅 모드를 사용할 수 없습니다."));
+            player.sendMessage(parseColor("<red>[!] 가입한 길드가 없어 길드 채팅 모드를 사용할 수 없습니다."));
             guildChatMode.remove(player.getUniqueId());
             return;
         }
@@ -129,7 +128,6 @@ public class GuildManager {
         String groupId = "guild_" + name.toLowerCase();
 
         lp.getGroupManager().createAndLoadGroup(groupId).thenAccept(group -> {
-            // ChatColor.WHITE 대신 Component 포맷 혹은 Legacy 코드 직접 사용 (Deprecated 해결)
             String suffix = " §f[" + colorCode + name + "§f]";
             group.data().clear(n -> n.getType().name().equals("SUFFIX"));
             group.data().add(SuffixNode.builder(suffix, 100).build());
@@ -139,13 +137,13 @@ public class GuildManager {
 
         guilds.put(name, new GuildData(name, owner.getUniqueId(), colorCode, 5));
         saveGuilds();
-        owner.sendMessage(parseColor("<green>길드 '<white>" + name + "</white>' 창설이 완료되었습니다!"));
+        owner.sendMessage(parseColor("<green>길드 '<white>" + name + "</white>' 생성 완료.</green>"));
     }
 
     public void acceptJoin(Player master, String requesterName) {
         GuildData guild = getGuildByMaster(master.getUniqueId());
         if (guild == null) {
-            master.sendMessage(parseColor("<red>길드장만 수락할 수 있습니다."));
+            master.sendMessage(parseColor("<red>길드장만 수락할 수 있습니다.</red>"));
             return;
         }
 
@@ -156,10 +154,10 @@ public class GuildManager {
 
         if (group != null) {
             addUserToGuild(requester.getUniqueId(), group);
-            master.sendMessage(parseColor("<green>" + requesterName + "님을 길드원으로 수락했습니다."));
+            master.sendMessage(parseColor("<green>" + requesterName + "님을 길드에 수락했습니다.</green>"));
             Player onlineRequester = requester.getPlayer();
             if (onlineRequester != null) {
-                onlineRequester.sendMessage(parseColor("<green>" + guild.name + " 길드에 가입되었습니다!"));
+                onlineRequester.sendMessage(parseColor("<green>" + guild.name + " 길드에 가입되었습니다!</green>"));
             }
         }
     }
@@ -172,12 +170,12 @@ public class GuildManager {
     public void expandCapacity(Player player) {
         GuildData guild = getGuildByMaster(player.getUniqueId());
         if (guild == null) {
-            player.sendMessage(parseColor("<red>[!] 길드장만 인원을 확장할 수 있습니다."));
+            player.sendMessage(parseColor("<red>[!] 길드장만 인원 확장 가능합니다.</red>"));
             return;
         }
         guild.maxMembers++;
         saveGuilds();
-        player.sendMessage(parseColor("<green>길드 최대 인원이 <yellow>" + guild.maxMembers + "</yellow>명으로 확장되었습니다!"));
+        player.sendMessage(parseColor("<green>길드 최대 인원이 <yellow>" + guild.maxMembers + "</yellow>명으로 확장되었습니다.</green>"));
     }
 
     public boolean consumeItem(Player p, Material mat, int amount) {
@@ -214,21 +212,22 @@ public class GuildManager {
 
     public void requestJoin(Player requester, String guildName) {
         if (getGuildByMember(requester.getUniqueId()) != null) {
-            requester.sendMessage(parseColor("<red>[!] 이미 길드에 소속되어 있습니다."));
+            requester.sendMessage(parseColor("<red>[!] 이미 길드에 소속되어 있습니다.</red>"));
             return;
         }
 
         GuildData guild = guilds.get(guildName);
         if (guild == null) {
-            requester.sendMessage(parseColor("<red>존재하지 않는 길드입니다."));
+            requester.sendMessage(parseColor("<red>존재하지 않는 길드입니다.</red>"));
             return;
         }
 
         Player master = Bukkit.getPlayer(guild.master);
         if (master != null) {
-            master.sendMessage(parseColor("<yellow>[!] <white>" + requester.getName() + "</white>님의 가입 요청: <gray>/길드 수락 " + requester.getName()));
+            master.sendMessage(parseColor("<yellow>[!] <white>" + requester.getName()
+                    + "</white>의 가입 요청: <gray>/길드 수락 " + requester.getName() + "</gray>"));
         }
-        requester.sendMessage(parseColor("<green>요청을 보냈습니다."));
+        requester.sendMessage(parseColor("<green>가입 요청을 보냈습니다.</green>"));
     }
 
     private void addUserToGuild(UUID uuid, Group group) {
@@ -237,10 +236,18 @@ public class GuildManager {
 
     private String getColorCode(String name) {
         return switch (name) {
-            case "빨강" -> "§c"; case "파랑" -> "§9"; case "분홍" -> "§d";
-            case "하늘" -> "§b"; case "주황" -> "§6"; case "노랑" -> "§e";
-            case "검정" -> "§0"; case "하양" -> "§f"; case "초록" -> "§2";
-            case "연두" -> "§a"; case "보라" -> "§5"; default -> "§f";
+            case "빨강" -> "§c";
+            case "파랑" -> "§9";
+            case "분홍" -> "§d";
+            case "하늘" -> "§b";
+            case "주황" -> "§6";
+            case "노랑" -> "§e";
+            case "검정" -> "§0";
+            case "하양" -> "§f";
+            case "초록" -> "§2";
+            case "연두" -> "§a";
+            case "보라" -> "§5";
+            default -> "§f";
         };
     }
 }

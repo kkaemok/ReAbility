@@ -27,7 +27,7 @@ public class Ghost extends AbilityBase {
 
     public Ghost(ReAbility plugin) {
         this.plugin = plugin;
-        startGhostTask(); // 투명화 및 비행 체크 루프
+        startGhostTask();
     }
 
     @Override public String getName() { return "GHOST"; }
@@ -37,10 +37,11 @@ public class Ghost extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§e[패시브] §f상시 스피드 2, 몹 처치 시 10초간 비행 가능",
-                "§f주변 10칸 이내에 플레이어가 있을 시 §b완전 투명§f이 됩니다.",
-                "§6[스킬: 고스트] §f다이아몬드 50개 소모, 20초간 §8관전자 상태§f 돌입",
-                "§f종료 후 힘 1 효과를 받습니다. (쿨타임 5분)"
+                "24시간 스피드 2 효과 획득.",
+                "몹 처치 시 10초 동안 자유 비행 가능.",
+                "주변 10칸 내 플레이어가 있으면 투명(갑옷 포함).",
+                "스킬 {고스트}: 다이아 50개 소모, 20초 관전자",
+                "종료 후 힘 1 효과 획득 (쿨타임 5분)."
         };
     }
 
@@ -53,7 +54,7 @@ public class Ghost extends AbilityBase {
     public void onDeactivate(Player player) {
         player.removePotionEffect(PotionEffectType.SPEED);
         player.setAllowFlight(false);
-        showPlayerToAll(player); // 투명화 강제 해제
+        showPlayerToAll(player);
     }
 
     private void startGhostTask() {
@@ -64,11 +65,11 @@ public class Ghost extends AbilityBase {
                     if (!isHasAbility(player)) continue;
                     if (player.getGameMode() == GameMode.SPECTATOR) continue;
 
-                    // 1. 주변 10칸 플레이어 감지 (투명화 로직)
                     boolean nearbyEnemy = false;
                     for (Player other : Bukkit.getOnlinePlayers()) {
                         if (player.equals(other)) continue;
-                        if (player.getWorld().equals(other.getWorld()) && player.getLocation().distance(other.getLocation()) <= 10) {
+                        if (player.getWorld().equals(other.getWorld())
+                                && player.getLocation().distance(other.getLocation()) <= 10) {
                             nearbyEnemy = true;
                             break;
                         }
@@ -81,10 +82,9 @@ public class Ghost extends AbilityBase {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L); // 0.5초마다 체크
+        }.runTaskTimer(plugin, 0L, 10L);
     }
 
-    // 완전 투명화 (갑옷 포함 - 서버 패킷 대신 모든 플레이어에게 숨김 처리)
     private void hidePlayerFromAll(Player ghost) {
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.hidePlayer(plugin, ghost);
@@ -103,9 +103,8 @@ public class Ghost extends AbilityBase {
         Player player = event.getEntity().getKiller();
         if (!isHasAbility(player)) return;
 
-        // 몹 처치 시 10초 비행
         player.setAllowFlight(true);
-        player.sendMessage(Component.text("[!] 몹을 처치하여 10초간 비행이 가능합니다!", NamedTextColor.AQUA));
+        player.sendMessage(Component.text("[!] 몹을 처치하여 10초 동안 비행이 가능합니다!", NamedTextColor.AQUA));
 
         new BukkitRunnable() {
             @Override
@@ -115,7 +114,7 @@ public class Ghost extends AbilityBase {
                     player.sendMessage(Component.text("[!] 비행 시간이 종료되었습니다.", NamedTextColor.GRAY));
                 }
             }
-        }.runTaskLater(plugin, 200L); // 10초
+        }.runTaskLater(plugin, 200L);
     }
 
     @Override
@@ -129,12 +128,11 @@ public class Ghost extends AbilityBase {
             return;
         }
 
-        // 스킬 발동
         item.setAmount(item.getAmount() - 50);
-        skillCooldown.put(player.getUniqueId(), now + 300000); // 5분
+        skillCooldown.put(player.getUniqueId(), now + 300000);
 
-        // A등급 공지
-        Bukkit.broadcast(Component.text("[!] 유령 " + player.getName() + "이(가) 이승을 떠나 고스트 상태가 되었습니다!", NamedTextColor.GRAY));
+        Bukkit.broadcast(Component.text("[!] 유령 " + player.getName() + "이(가) {고스트}를 사용했습니다!",
+                NamedTextColor.GRAY));
 
         GameMode prevMode = player.getGameMode();
         player.setGameMode(GameMode.SPECTATOR);
@@ -145,11 +143,12 @@ public class Ghost extends AbilityBase {
             public void run() {
                 if (player.isOnline()) {
                     player.setGameMode(prevMode);
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 600, 0)); // 힘 1 (30초)
-                    player.sendMessage(Component.text("[!] 다시 실체화되었습니다. 힘의 기운이 솟아납니다!", NamedTextColor.GOLD));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 600, 0));
+                    player.sendMessage(Component.text("[!] 유령 상태가 종료되었습니다. 힘 1 효과를 획득합니다.",
+                            NamedTextColor.GOLD));
                 }
             }
-        }.runTaskLater(plugin, 400L); // 20초
+        }.runTaskLater(plugin, 400L);
     }
 
     private boolean isHasAbility(Player player) {

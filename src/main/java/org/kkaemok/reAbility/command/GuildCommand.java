@@ -31,21 +31,21 @@ public class GuildCommand implements CommandExecutor {
         }
 
         switch (args[0]) {
-            case "창설":
+            case "생성":
                 if (args.length < 3) {
-                    player.sendMessage("§c사용법: /길드 창설 [길드이름] [색깔]");
+                    player.sendMessage("사용법: /길드 생성 [길드명] [색상]");
                     return true;
                 }
                 if (guildManager.consumeItem(player, Material.DIAMOND, 100)) {
                     guildManager.createGuild(player, args[1], args[2]);
                 } else {
-                    player.sendMessage("§c다이아몬드 100개가 부족합니다.");
+                    player.sendMessage("다이아몬드 100개가 부족합니다.");
                 }
                 break;
 
             case "요청":
                 if (args.length < 2) {
-                    player.sendMessage("§c사용법: /길드 요청 [길드이름]");
+                    player.sendMessage("사용법: /길드 요청 [길드명]");
                     return true;
                 }
                 guildManager.requestJoin(player, args[1]);
@@ -53,7 +53,7 @@ public class GuildCommand implements CommandExecutor {
 
             case "수락":
                 if (args.length < 2) {
-                    player.sendMessage("§c사용법: /길드 수락 [플레이어이름]");
+                    player.sendMessage("사용법: /길드 수락 [플레이어명]");
                     return true;
                 }
                 guildManager.acceptJoin(player, args[1]);
@@ -73,11 +73,11 @@ public class GuildCommand implements CommandExecutor {
     private void handleExpansion(Player player) {
         int currentLimit = guildManager.getGuildMemberLimit(player);
         if (currentLimit == -1) {
-            player.sendMessage("§c소속된 길드가 없습니다.");
+            player.sendMessage("가입한 길드가 없습니다.");
             return;
         }
         if (currentLimit >= 10) {
-            player.sendMessage("§c이미 최대 인원(10명)입니다.");
+            player.sendMessage("최대 인원은 10명입니다.");
             return;
         }
 
@@ -87,7 +87,7 @@ public class GuildCommand implements CommandExecutor {
             case 6 -> 100;
             case 7 -> 200;
             case 8 -> 300;
-            case 9 -> 1; // 네더라이트 주괴
+            case 9 -> 1;
             default -> 0;
         };
 
@@ -97,16 +97,16 @@ public class GuildCommand implements CommandExecutor {
             guildManager.expandCapacity(player);
         } else {
             String name = (costMat == Material.DIAMOND) ? "다이아몬드" : "네더라이트 주괴";
-            player.sendMessage("§c비용이 부족합니다! (" + name + " " + amount + "개 필요)");
+            player.sendMessage("비용이 부족합니다! (" + name + " " + amount + "개 필요)");
         }
     }
 
     private void sendHelp(Player p) {
         p.sendMessage("§6§l[ 길드 시스템 ]");
-        p.sendMessage("§f/길드 창설 [이름] [색깔] §7(다이아 100개)");
-        p.sendMessage("§f/길드 요청 [길드이름]");
-        p.sendMessage("§f/길드 수락 [닉네임]");
+        p.sendMessage("§f/길드 생성 [이름] [색상] §7(다이아 100개)");
+        p.sendMessage("§f/길드 요청 [길드명]");
+        p.sendMessage("§f/길드 수락 [플레이어명]");
         p.sendMessage("§f/길드 확장 §7(다이아/네더라이트 소모)");
-        p.sendMessage("§f/길드챗 §7(토글 방식)");
+        p.sendMessage("§f/길드챗 §7(토글)");
     }
 }

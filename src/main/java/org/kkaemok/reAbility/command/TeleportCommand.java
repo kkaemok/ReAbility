@@ -25,18 +25,18 @@ public class TeleportCommand implements CommandExecutor {
 
         if (label.equalsIgnoreCase("tpa")) {
             if (args.length == 0) {
-                player.sendMessage("§c사용법: /tpa <닉네임> | /tpa 수락 | /tpa 거절");
+                player.sendMessage("사용법: /tpa <닉네임> | /tpa 수락 | /tpa 거절");
                 return true;
             }
 
-            if (args[0].equals("수락")) {
+            if (args[0].equalsIgnoreCase("수락") || args[0].equalsIgnoreCase("accept")) {
                 tpManager.acceptTPA(player);
-            } else if (args[0].equals("거절")) {
-                player.sendMessage("§c요청을 거절했습니다."); // 필요시 기능 확장
+            } else if (args[0].equalsIgnoreCase("거절") || args[0].equalsIgnoreCase("deny")) {
+                player.sendMessage("TPA 요청을 거절했습니다.");
             } else {
                 Player target = Bukkit.getPlayer(args[0]);
                 if (target != null) tpManager.requestTPA(player, target);
-                else player.sendMessage("§c플레이어를 찾을 수 없습니다.");
+                else player.sendMessage("플레이어를 찾을 수 없습니다.");
             }
         }
         return true;

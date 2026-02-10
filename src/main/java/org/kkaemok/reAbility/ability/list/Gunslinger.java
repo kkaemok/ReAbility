@@ -36,9 +36,10 @@ public class Gunslinger extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§e[패시브] §f상시 저항 1 효과 획득",
-                "§6[기본 스킬] §f웅크릴 시 총알 발사 (피해 20, 쿨타임 5초)",
-                "§6[특수 스킬: 총알 난사] §f다이아몬드 50개 소모, 3초 후 15발 난사"
+                "24시간 저항 1 효과 획득.",
+                "웅크릴 시 가스트 투사체 모양의 총알 발사",
+                "맞을 시 피해 20 + 5초 동안 불탐 (쿨타임 5초)",
+                "스킬 {총알 난사}: 다이아 50개 소모, 3초 후 15발 난사"
         };
     }
 
@@ -57,16 +58,15 @@ public class Gunslinger extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        // 1. {총알 난사}
         if (item.getType() == Material.DIAMOND && item.getAmount() >= 50) {
             if (now < ultimateCooldown.getOrDefault(player.getUniqueId(), 0L)) {
-                player.sendMessage(Component.text("총알 난사 쿨타임 중입니다.", NamedTextColor.RED));
+                player.sendMessage(Component.text("총알 난사 쿨타임입니다.", NamedTextColor.RED));
                 return;
             }
             item.setAmount(item.getAmount() - 50);
             ultimateCooldown.put(player.getUniqueId(), now + 60000);
 
-            player.sendMessage(Component.text("[!] 3초 후 총알 난사를 시작합니다!", NamedTextColor.RED));
+            player.sendMessage(Component.text("[!] 3초 후 총알 난사를 시작합니다.", NamedTextColor.RED));
             new BukkitRunnable() {
                 int count = 0;
                 @Override
@@ -79,7 +79,6 @@ public class Gunslinger extends AbilityBase {
             return;
         }
 
-        // 2. 기본 발사
         if (now < basicCooldown.getOrDefault(player.getUniqueId(), 0L)) return;
         shootBullet(player);
         basicCooldown.put(player.getUniqueId(), now + 5000);
@@ -89,17 +88,15 @@ public class Gunslinger extends AbilityBase {
         Fireball ball = player.launchProjectile(Fireball.class);
         ball.setYield(0);
         ball.setIsIncendiary(true);
-        // 화염구에 메타데이터 부여 (데미지 판별용)
         ball.setMetadata(BULLET_KEY, new FixedMetadataValue(plugin, true));
         player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 2.0f);
     }
 
-    // [데미지 20 보정 로직]
     @EventHandler
     public void onBulletHit(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Fireball ball) {
             if (ball.hasMetadata(BULLET_KEY)) {
-                event.setDamage(20.0); // 데미지 20(하트 10칸) 고정
+                event.setDamage(20.0);
             }
         }
     }

@@ -36,15 +36,16 @@ public class Miner extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§e[패시브] §f상시 성급함 2 효과. 다이아몬드와 고대 잔해 채굴량이 대폭 증가합니다.",
-                "§b[심해의 힘] §fY좌표 0 이하에서 저항2, 힘1, 재생1 효과 획득",
-                "§6[스킬: 연금술?] §f철 50개를 들고 웅크릴 시 다이아 50개로 교환 (A급 공지)"
+                "24시간 채굴속도 증가 2 버프 획득.",
+                "다이아몬드 1시간 제한: 100개 -> 700개",
+                "고대잔해 3시간 제한: 2개 -> 7개",
+                "스킬 {연금술}: 철 50개로 다이아 50개 교환",
+                "Y좌표 0 이하에서 저항 2, 힘 1, 재생 1 버프 획득."
         };
     }
 
     @Override
     public void onActivate(Player player) {
-        // FAST_DIGGING -> HASTE
         player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, PotionEffect.INFINITE_DURATION, 1, false, false));
     }
 
@@ -64,7 +65,6 @@ public class Miner extends AbilityBase {
                     if (!isHasAbility(player)) continue;
 
                     if (player.getLocation().getBlockY() <= 0) {
-                        // DAMAGE_RESISTANCE -> RESISTANCE, INCREASE_DAMAGE -> STRENGTH
                         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 40, 1, false, false));
                         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 40, 0, false, false));
                         player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 0, false, false));
@@ -100,10 +100,10 @@ public class Miner extends AbilityBase {
 
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 
-            // A등급 공지
-            Bukkit.broadcast(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD));
-            Bukkit.broadcast(Component.text("[!] 광부 " + player.getName() + "이(가) {연금술?}을 사용하여 철을 다이아몬드로 연성했습니다!", NamedTextColor.YELLOW));
-            Bukkit.broadcast(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD));
+            Bukkit.broadcast(Component.text("==========", NamedTextColor.GOLD));
+            Bukkit.broadcast(Component.text("광부 " + player.getName() + "이(가) {연금술}을 사용했습니다!",
+                    NamedTextColor.YELLOW));
+            Bukkit.broadcast(Component.text("==========", NamedTextColor.GOLD));
         }
     }
 

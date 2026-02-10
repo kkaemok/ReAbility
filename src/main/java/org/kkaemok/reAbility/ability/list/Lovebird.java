@@ -16,7 +16,7 @@ import java.util.List;
 
 public class Lovebird extends AbilityBase {
     private final ReAbility plugin;
-    private final GuildManager guildManager; // 길드 매니저 참조 추가
+    private final GuildManager guildManager;
     private BukkitTask task;
 
     public Lovebird(ReAbility plugin, GuildManager guildManager) {
@@ -36,8 +36,9 @@ public class Lovebird extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§7길드원과 5블록 내에 있을 시 서로에게 버프를 부여합니다.",
-                "§d[재생 II, 힘 I] §8(자신 포함 최대 2명 적용)"
+                "길드원과 함께 붙어있을 시",
+                "길드원과 자신에게 재생 2, 힘 1 버프 제공",
+                "(자신 포함 최대 2명만 적용)"
         };
     }
 
@@ -51,26 +52,22 @@ public class Lovebird extends AbilityBase {
                     return;
                 }
 
-                // 1. 본인의 길드 확인 (GuildManager 활용)
                 GuildData myGuild = guildManager.getGuildByMember(player.getUniqueId());
-                if (myGuild == null) return; // 소속 길드 없으면 작동 안 함
+                if (myGuild == null) return;
 
-                // 2. 주변 5블록 내 길드원 탐색
                 List<Entity> nearby = player.getNearbyEntities(5, 5, 5);
                 Player partner = null;
 
                 for (Entity entity : nearby) {
                     if (entity instanceof Player target && target != player) {
-                        // 3. GuildManager로 같은 길드인지 판별
                         GuildData targetGuild = guildManager.getGuildByMember(target.getUniqueId());
                         if (targetGuild != null && targetGuild.name.equals(myGuild.name)) {
                             partner = target;
-                            break; // 기획안: 자신 포함 최대 2명이므로 파트너 1명 찾으면 끝
+                            break;
                         }
                     }
                 }
 
-                // 4. 길드원을 찾았다면 둘 다 버프 부여
                 if (partner != null) {
                     applyLoveBuff(player);
                     applyLoveBuff(partner);
@@ -90,7 +87,6 @@ public class Lovebird extends AbilityBase {
     }
 
     private void applyLoveBuff(Player target) {
-        // 재생 II (Amplifier 1), 힘 I (Amplifier 0)
         target.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 50, 1, false, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 50, 0, false, false, true));
     }

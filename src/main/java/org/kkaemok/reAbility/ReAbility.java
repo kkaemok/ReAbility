@@ -23,10 +23,8 @@ public class ReAbility extends JavaPlugin {
     @Override
     public void onEnable() {
         try {
-            // 1. 기본 설정 저장
             saveDefaultConfig();
 
-            // 2. 매니저 초기화 (순서 중요: GuildManager를 먼저 생성해야 Lovebird 등록 가능)
             this.guildManager = new GuildManager(this);
             this.abilityManager = new AbilityManager(this);
             this.ticketItemManager = new TicketItemManager(this);
@@ -34,15 +32,12 @@ public class ReAbility extends JavaPlugin {
             CombatManager combatManager = new CombatManager();
             TeleportManager teleportManager = new TeleportManager(this, abilityManager, combatManager);
 
-            // 3. 데이터 파일 로드
             this.guildManager.loadGuilds();
             this.abilityManager.loadPlayerData();
 
-            // 4. 명령어 및 이벤트 등록
             registerCommands(teleportManager);
             registerEvents(combatManager, teleportManager);
 
-            // 5. 실시간 능력 감시 태스크
             new AbilityUpdateTask(this.abilityManager).runTaskTimer(this, 100L, 1200L);
 
             getLogger().info("모든 시스템이 활성화되었습니다.");
@@ -64,7 +59,7 @@ public class ReAbility extends JavaPlugin {
             Objects.requireNonNull(getCommand("tpa")).setExecutor(tpCmd);
             Objects.requireNonNull(getCommand("rtp")).setExecutor(tpCmd);
         } catch (NullPointerException e) {
-            getLogger().log(Level.WARNING, "plugin.yml에 명령어가 누락되었습니다.", e);
+            getLogger().log(Level.WARNING, "plugin.yml의 명령어 설정을 확인하세요.", e);
         }
     }
 
@@ -76,14 +71,16 @@ public class ReAbility extends JavaPlugin {
         pm.registerEvents(new GuildChatListener(guildManager), this);
         pm.registerEvents(new WorldSettingsListener(), this);
         pm.registerEvents(new MiningManager(abilityManager), this);
-        pm.registerEvents(new AbilityListener(abilityManager), this); // AbilityListener 등록 추가
+        pm.registerEvents(new AbilityListener(abilityManager), this);
+        pm.registerEvents(new SneakSkillListener(abilityManager), this);
+        pm.registerEvents(new MilkEffectListener(this, abilityManager), this);
     }
 
     @Override
     public void onDisable() {
         if (guildManager != null) guildManager.saveGuilds();
         if (abilityManager != null) abilityManager.saveAll();
-        getLogger().info("데이터 저장 완료 후 플러그인이 종료되었습니다.");
+        getLogger().info("데이터 저장 완료. 플러그인이 종료되었습니다.");
     }
 
     public AbilityManager getAbilityManager() { return abilityManager; }

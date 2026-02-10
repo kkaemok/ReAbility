@@ -5,18 +5,33 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
 
 public class Eater extends AbilityBase {
+    private final ReAbility plugin;
+
+    public Eater(ReAbility plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public String getName() { return "EATER"; }
+
     @Override
     public String getDisplayName() { return "먹보"; }
+
     @Override
     public AbilityGrade getGrade() { return AbilityGrade.D; }
+
     @Override
-    public String[] getDescription() { return new String[]{"배고픔이 닳지 않으며,", "상시 재생 1 효과를 얻습니다."}; }
+    public String[] getDescription() {
+        return new String[]{
+                "배고픔이 닳지 않음.",
+                "24시간 재생 1 버프 획득."
+        };
+    }
 
     @Override
     public void onActivate(Player player) {
@@ -30,8 +45,15 @@ public class Eater extends AbilityBase {
 
     @EventHandler
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
-        // 배고픔이 닳지 않게 고정
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!isHasAbility(player)) return;
+
         event.setCancelled(true);
-        ((Player) event.getEntity()).setFoodLevel(20);
+        player.setFoodLevel(20);
+    }
+
+    private boolean isHasAbility(Player player) {
+        String ability = plugin.getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName();
+        return getName().equals(ability);
     }
 }

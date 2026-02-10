@@ -38,13 +38,15 @@ public class Chronos extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§e[SS급 패시브] §f힘 3, 재생 2 부여 (주변 100칸 내 길드원 감지 시 제거)",
-                "§e[패시브] §f매일 모든 길드원에게 능력 1일 유지권 지급 (최대 5일)",
-                "§6[스킬: 시간의 포효] §f네더라이트 주괴 2개 소모 (웅크리기)",
-                "§f1000칸 내 적 데미지 100 + 각종 디버프 (쿨타임 10분)",
-                "§6[스킬: 카이로스의 지혜] §f네더라이트 파편 2개 획득 (쿨타임 1시간)",
-                "§b[스킬: 시간 단절] §f네더라이트 주괴 3개 소모 (웅크리기)",
-                "§f20초 의식 후 자신 제외 전원 1분간 경직 (쿨타임 1시간)"
+                "힘 3, 재생 2 효과 획득 (주변 100칸 내 길드원 있으면 해제).",
+                "패시브: 하루에 한 번 길드원에게 능력 1일 유지권 지급(최대 5일).",
+                "스킬 {시간의 포효}: 네더라이트 주괴 2개 소모",
+                "1000칸 내 적에게 피해 100 + 구속3, 멀미, 나약함1, 어둠, 허기3",
+                "(쿨타임 10분)",
+                "스킬 {카이로스의 지혜}: 네더라이트 파편 2개 획득 (쿨타임 1시간)",
+                "스킬 {시간 단절}: 네더라이트 주괴 3개 소모,",
+                "20초 의식 후 1분간 자신 제외 모두 경직 (쿨타임 1시간)",
+                "* 경직 중 이동/공격 불가, 황금사과/토템 사용 가능"
         };
     }
 
@@ -65,7 +67,6 @@ public class Chronos extends AbilityBase {
             public void run() {
                 if (!chronos.isOnline()) { this.cancel(); return; }
 
-                // 100칸 이내 길드원 체크
                 boolean guildMemberNearby = chronos.getNearbyEntities(100, 100, 100).stream()
                         .filter(e -> e instanceof Player)
                         .map(e -> (Player) e)
@@ -85,7 +86,6 @@ public class Chronos extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        // 1. 시간의 포효 (주괴 2개)
         if (item.getType() == Material.NETHERITE_INGOT && item.getAmount() >= 2) {
             if (checkCooldown(player, roarCooldown, 600000, now)) {
                 item.setAmount(item.getAmount() - 2);
@@ -95,7 +95,6 @@ public class Chronos extends AbilityBase {
             return;
         }
 
-        // 2. 시간 단절 (주괴 3개)
         if (item.getType() == Material.NETHERITE_INGOT && item.getAmount() >= 3) {
             if (checkCooldown(player, stopCooldown, 3600000, now)) {
                 item.setAmount(item.getAmount() - 3);
@@ -105,10 +104,10 @@ public class Chronos extends AbilityBase {
             return;
         }
 
-        // 3. 카이로스의 지혜 (쿨타임 한 시간)
         if (checkCooldown(player, wisdomCooldown, 3600000, now)) {
             player.getInventory().addItem(new ItemStack(Material.NETHERITE_SCRAP, 2));
-            player.sendMessage(Component.text("[!] 카이로스의 지혜로 네더라이트 파편을 얻었습니다.", NamedTextColor.GOLD));
+            player.sendMessage(Component.text("[!] 카이로스의 지혜로 네더라이트 파편 2개를 획득했습니다.",
+                    NamedTextColor.GOLD));
         }
     }
 
@@ -128,14 +127,17 @@ public class Chronos extends AbilityBase {
     }
 
     private void startTimeSeverance(Player chronos) {
-        Bukkit.broadcast(Component.text("§c[!] 크로노스가 시간 단절 의식을 시작합니다 (20초)"));
+        Bukkit.broadcast(Component.text("20초 뒤 SS등급 크로노스의 시간 단절 스킬이 발동됩니다.",
+                NamedTextColor.RED));
 
         new BukkitRunnable() {
             int count = 20;
             @Override
             public void run() {
                 if (count > 0) {
-                    if (count <= 5) Bukkit.broadcast(Component.text("§e" + count + "..."));
+                    if (count <= 5 && chronos.isOnline()) {
+                        chronos.sendMessage(Component.text(count + "...", NamedTextColor.YELLOW));
+                    }
                     count--;
                 } else {
                     applyTimeStop(chronos);
@@ -150,13 +152,14 @@ public class Chronos extends AbilityBase {
                 .filter(p -> !p.equals(chronos))
                 .forEach(p -> frozenPlayers.add(p.getUniqueId()));
 
-        Bukkit.broadcast(Component.text("§b§l[!] 시간이 단절되었습니다. 1분간 크로노스 외 모두가 경직됩니다."));
+        Bukkit.broadcast(Component.text("[!] 시간 단절 발동! 1분 동안 크로노스 외 모두가 경직됩니다.",
+                NamedTextColor.AQUA));
 
         new BukkitRunnable() {
             @Override
             public void run() {
                 frozenPlayers.clear();
-                Bukkit.broadcast(Component.text("§a[!] 시간의 흐름이 복구되었습니다."));
+                Bukkit.broadcast(Component.text("[!] 시간 단절이 종료되었습니다.", NamedTextColor.GREEN));
             }
         }.runTaskLater(plugin, 1200L);
     }
@@ -189,11 +192,11 @@ public class Chronos extends AbilityBase {
     }
 
     private boolean isSameGuild(Player p1, Player p2) {
-        // p1, p2를 활용한 길드 체크 로직 (예시: p1의 길드 정보와 p2의 길드 정보 비교)
         return p1.equals(p2);
     }
 
     private void broadcastSkill(Player player, String name) {
-        Bukkit.broadcast(Component.text("§e[SS] 크로노스 " + player.getName() + " §f- " + name));
+        Bukkit.broadcast(Component.text("[SS] 크로노스 " + player.getName() + " - " + name,
+                NamedTextColor.LIGHT_PURPLE));
     }
 }

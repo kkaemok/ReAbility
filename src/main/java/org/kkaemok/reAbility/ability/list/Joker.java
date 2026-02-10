@@ -43,11 +43,13 @@ public class Joker extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§6[S급 패시브] §f저항 1, 재생 1 상시 부여",
-                "§e[패시브] §f1시간마다 이름표와 채팅 이름이 무작위로 변경됩니다.",
-                "§6[스킬: 스파이] §f에메랄드 50개 소모, 3분간 모든 채팅 도청",
-                "§6[스킬: 환상] §f네더라이트 파편 2개 소모, 적들에게 나약함 100 부여",
-                "§6[스킬: 죽음의 트릭] §f다이아 100개 소모, 20% 확률 즉사 / 80% 자폭"
+                "닉네임과 스킨이 1시간마다 바뀜.",
+                "스킬 {스파이}: 에메랄드 50개 소모, 3분간 채팅 감청",
+                "(쿨타임 30분)",
+                "스킬 {환상}: 네더라이트 파편 2개 소모, 나약함 100 부여",
+                "(쿨타임 15분)",
+                "스킬 {죽음의 트릭}: 다이아 100개 소모, 80% 본인 사망",
+                "20% 확률로 랜덤 플레이어 즉사 (쿨타임 3시간)"
         };
     }
 
@@ -80,29 +82,26 @@ public class Joker extends AbilityBase {
         String fakeName = "Player" + (random.nextInt(9000) + 1000);
         currentFakeNames.put(joker.getUniqueId(), fakeName);
 
-        // 자신을 제외한 모든 플레이어에게 가짜 이름 패킷 전송
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             if (viewer.equals(joker)) continue;
             updateJokerNametag(joker, viewer, fakeName);
         }
-        joker.sendMessage(Component.text("[!] 신분 세탁 완료. 현재 가짜 이름: " + fakeName, NamedTextColor.LIGHT_PURPLE));
+        joker.sendMessage(Component.text("[!] 신분 위장 완료. 현재 닉네임: " + fakeName, NamedTextColor.LIGHT_PURPLE));
     }
 
     private void updateJokerNametag(Player target, Player viewer, String customName) {
         viewer.hidePlayer(plugin, target);
         try {
-            // 1. 정보 제거
             PacketContainer removePacket = new PacketContainer(PacketType.Play.Server.PLAYER_INFO_REMOVE);
             removePacket.getUUIDLists().write(0, Collections.singletonList(target.getUniqueId()));
             ProtocolLibrary.getProtocolManager().sendServerPacket(viewer, removePacket);
 
-            // 2. 정보 추가 (가짜 이름으로 프로필 생성)
             PacketContainer infoPacket = new PacketContainer(PacketType.Play.Server.PLAYER_INFO);
             infoPacket.getPlayerInfoActions().write(0, EnumSet.of(EnumWrappers.PlayerInfoAction.ADD_PLAYER));
 
             WrappedGameProfile profile = WrappedGameProfile.fromPlayer(target);
             WrappedGameProfile customProfile = new WrappedGameProfile(target.getUniqueId(), customName);
-            customProfile.getProperties().putAll(profile.getProperties()); // 스킨은 유지
+            customProfile.getProperties().putAll(profile.getProperties());
 
             PlayerInfoData data = new PlayerInfoData(
                     target.getUniqueId(),
@@ -116,7 +115,7 @@ public class Joker extends AbilityBase {
             infoPacket.getPlayerInfoDataLists().write(1, Collections.singletonList(data));
             ProtocolLibrary.getProtocolManager().sendServerPacket(viewer, infoPacket);
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[ReAbility] 조커 패킷 전송 중 오류 발생", e);
+            plugin.getLogger().log(Level.SEVERE, "[ReAbility] 조커 위장 패킷 전송 중 오류 발생", e);
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> viewer.showPlayer(plugin, target), 2L);
     }
@@ -134,7 +133,6 @@ public class Joker extends AbilityBase {
         Player sender = event.getPlayer();
         String rawMessage = PlainTextComponentSerializer.plainText().serialize(event.message());
 
-        // 로직 1: 조커 본인이 채팅을 칠 때 가짜 이름으로 표시
         if (isHasAbility(sender) && currentFakeNames.containsKey(sender.getUniqueId())) {
             String fakeName = currentFakeNames.get(sender.getUniqueId());
             event.renderer((source, sourceDisplayName, message, viewer) ->
@@ -144,12 +142,11 @@ public class Joker extends AbilityBase {
             );
         }
 
-        // 로직 2: 도청 기능 (Spy)
         spyEndTime.forEach((uuid, endTime) -> {
             if (System.currentTimeMillis() < endTime) {
                 Player joker = Bukkit.getPlayer(uuid);
                 if (joker != null && joker.isOnline() && !joker.equals(sender)) {
-                    joker.sendMessage(Component.text("[도청] " + sender.getName() + ": " + rawMessage, NamedTextColor.GRAY));
+                    joker.sendMessage(Component.text("[스파이] " + sender.getName() + ": " + rawMessage, NamedTextColor.GRAY));
                 }
             } else {
                 spyEndTime.remove(uuid);
@@ -162,7 +159,6 @@ public class Joker extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        // 1. {스파이}
         if (item.getType() == Material.EMERALD && item.getAmount() >= 50) {
             item.setAmount(item.getAmount() - 50);
             spyEndTime.put(player.getUniqueId(), now + 180000);
@@ -170,7 +166,6 @@ public class Joker extends AbilityBase {
             return;
         }
 
-        // 2. {환상}
         if (item.getType() == Material.NETHERITE_SCRAP && item.getAmount() >= 2) {
             item.setAmount(item.getAmount() - 2);
             broadcastSkill(player, "{환상}");
@@ -182,7 +177,6 @@ public class Joker extends AbilityBase {
             return;
         }
 
-        // 3. {죽음의 트릭}
         if (item.getType() == Material.DIAMOND && item.getAmount() >= 100) {
             if (now < trickCooldown.getOrDefault(player.getUniqueId(), 0L)) return;
             item.setAmount(item.getAmount() - 100);
@@ -201,7 +195,8 @@ public class Joker extends AbilityBase {
     }
 
     private void broadcastSkill(Player player, String skillName) {
-        Bukkit.broadcast(Component.text("[S] " + player.getName() + "님이 " + skillName + " 스킬을 사용했습니다!", NamedTextColor.LIGHT_PURPLE));
+        Bukkit.broadcast(Component.text("[S] 조커 " + player.getName() + "이(가) " + skillName + "을 사용했습니다!",
+                NamedTextColor.LIGHT_PURPLE));
     }
 
     private boolean isHasAbility(Player player) {

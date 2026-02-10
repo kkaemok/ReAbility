@@ -32,17 +32,17 @@ public class Fighter extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§e[패시브] §f힘 2 효과, 체력 1줄 고정, 가한 피해의 40% 회복",
-                "§6[스킬] §f다이아몬드 100개 소모 시 즉시 풀피 및 스피드 50 (15초)"
+                "24시간 힘 2 효과 획득, HP는 한 줄로 고정.",
+                "입힌 피해의 40%만큼 회복.",
+                "스킬 {난 햇빛을 피해 도망치는 것이다.}:",
+                "다이아 100개 소모, 즉시 HP 전부 회복 + 15초 스피드 50"
         };
     }
 
     @Override
     public void onActivate(Player player) {
-        // INCREASE_DAMAGE -> STRENGTH (버전별 상이할 수 있으나 최신은 STRENGTH)
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 1, false, false));
 
-        // GENERIC_MAX_HEALTH -> MAX_HEALTH (최신 버전은 접두사 없음)
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
             maxHealthAttr.setBaseValue(20.0);
@@ -55,7 +55,7 @@ public class Fighter extends AbilityBase {
 
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
-            maxHealthAttr.setBaseValue(40.0); // 원래대로 2줄 복구
+            maxHealthAttr.setBaseValue(40.0);
         }
     }
 
@@ -63,7 +63,6 @@ public class Fighter extends AbilityBase {
     public void onAttack(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player attacker) || !isHasAbility(attacker)) return;
 
-        // 흡혈 로직 (입힌 피해의 40%)
         double healAmount = event.getFinalDamage() * 0.4;
         AttributeInstance maxHealthAttr = attacker.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
@@ -91,7 +90,6 @@ public class Fighter extends AbilityBase {
             player.setHealth(maxHealthAttr.getValue());
         }
 
-        // 스피드 50
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 300, 49));
         player.sendMessage(Component.text("[!] 스킬 {난 햇빛을 피해 도망치는 것이다.} 발동!", NamedTextColor.YELLOW));
     }

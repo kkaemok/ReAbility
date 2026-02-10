@@ -37,12 +37,11 @@ public class Beauty extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "§6[S급 패시브] §f자신과 주변 길드원에게 §a재생 1, 저항 1 §f공유",
-                "§c[패시브] §f적군이 나를 바라보면 심장이 멈춰 움직일 수 없습니다.",
-                "§6[스킬: 미인계] §f다이아 30개 소모 (웅크리기)",
-                "§f1시간 동안 상점 이용 가격이 낮아집니다.",
-                "§6[스킬: 기분좋은 냄새] §f다이아 60개 소모 (웅크리기)",
-                "§f주변 적에게 §7나약함 2, 구속 2, 멀미§f를 1분간 부여 (쿨타임 5분)"
+                "길드원에게 재생 1, 저항 1 효과 공유.",
+                "상대팀이 자신을 바라보면 움직일 수 없음.",
+                "스킬 {미인계}: 다이아 30개 소모, 상점 가격 1시간 감소",
+                "스킬 {기분 좋은 냄새}: 다이아 60개 소모,",
+                "주변 적에게 나약함 2, 구속 2, 멀미 (1분, 쿨타임 5분)"
         };
     }
 
@@ -66,7 +65,6 @@ public class Beauty extends AbilityBase {
                     return;
                 }
 
-                // 1. 버프 공유 (본인 포함 주변 50칸 아군)
                 beauty.getNearbyEntities(50, 50, 50).stream()
                         .filter(e -> e instanceof Player)
                         .map(e -> (Player) e)
@@ -74,14 +72,12 @@ public class Beauty extends AbilityBase {
                         .forEach(this::applyBuff);
                 applyBuff(beauty);
 
-                // 2. 심정지 패시브 (시선 체크)
                 for (Player enemy : Bukkit.getOnlinePlayers()) {
                     if (enemy.getWorld().equals(beauty.getWorld()) && !isSameGuild(beauty, enemy)) {
                         if (enemy.getLocation().distance(beauty.getLocation()) < 50 && isLookingAt(enemy, beauty)) {
-                            // SLOWNESS, JUMP_BOOST로 수정
                             enemy.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 10, 255, false, false));
                             enemy.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 10, 200, false, false));
-                            enemy.sendActionBar(Component.text("§d미녀를 바라보아 심장이 멈췄습니다!"));
+                            enemy.sendActionBar(Component.text("미녀를 바라보아 움직일 수 없습니다."));
                         }
                     }
                 }
@@ -99,15 +95,14 @@ public class Beauty extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        // 1. 미인계 (할인 로직 포함)
         if (item.getType() == Material.DIAMOND && item.getAmount() >= 30) {
             item.setAmount(item.getAmount() - 30);
             discountTime.put(player.getUniqueId(), now + 3600000);
-            player.sendMessage(Component.text("[!] {미인계} 발동! 1시간 동안 할인이 적용됩니다.", NamedTextColor.LIGHT_PURPLE));
+            player.sendMessage(Component.text("[!] 스킬 {미인계} 발동! 1시간 동안 상점 가격이 낮아집니다.",
+                    NamedTextColor.LIGHT_PURPLE));
             return;
         }
 
-        // 2. 기분좋은 냄새
         if (item.getType() == Material.DIAMOND && item.getAmount() >= 60) {
             if (now < scentCooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("쿨타임 중입니다.", NamedTextColor.RED));
@@ -119,17 +114,15 @@ public class Beauty extends AbilityBase {
 
             for (Entity entity : player.getNearbyEntities(20, 20, 20)) {
                 if (entity instanceof Player target && !isSameGuild(player, target)) {
-                    // SLOWNESS, NAUSEA로 수정
                     target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 1200, 1));
                     target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 1200, 1));
                     target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 1200, 0));
                 }
             }
-            broadcastSkill(player, "{기분좋은 냄새}");
+            broadcastSkill(player, "{기분 좋은 냄새}");
         }
     }
 
-    // 할인 여부 확인 메서드 (상점 이벤트에서 호출 가능)
     public boolean hasDiscount(Player player) {
         return System.currentTimeMillis() < discountTime.getOrDefault(player.getUniqueId(), 0L);
     }
@@ -142,11 +135,11 @@ public class Beauty extends AbilityBase {
 
     private boolean isSameGuild(Player p1, Player p2) {
         if (p1.equals(p2)) return true;
-        // 실제 길드 로직 연동 시 여기에 작성
         return false;
     }
 
     private void broadcastSkill(Player player, String skillName) {
-        Bukkit.broadcast(Component.text("[S] 미녀 " + player.getName() + "님이 " + skillName + "를 시전했습니다!", NamedTextColor.LIGHT_PURPLE));
+        Bukkit.broadcast(Component.text("[S] 미녀 " + player.getName() + "이(가) " + skillName + "을 사용했습니다!",
+                NamedTextColor.LIGHT_PURPLE));
     }
 }

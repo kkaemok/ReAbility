@@ -13,12 +13,20 @@ import org.kkaemok.reAbility.ability.AbilityGrade;
 public class Zombie extends AbilityBase {
     @Override
     public String getName() { return "ZOMBIE"; }
+
     @Override
     public String getDisplayName() { return "좀비"; }
+
     @Override
     public AbilityGrade getGrade() { return AbilityGrade.C; }
+
     @Override
-    public String[] getDescription() { return new String[]{"체력이 4줄이 되지만 상시 나약함과 허기가 걸립니다.", "황금사과 섭취 시 나약함이 잠시 해제됩니다."}; }
+    public String[] getDescription() {
+        return new String[]{
+                "체력이 4줄이 되지만 24시간 허기 2, 나약함 1 디버프를 받음.",
+                "황금사과 효과가 재생 2로 바뀌고 나약함을 30초 제거."
+        };
+    }
 
     @Override
     public void onActivate(Player player) {
@@ -29,7 +37,7 @@ public class Zombie extends AbilityBase {
 
     @Override
     public void onDeactivate(Player player) {
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(40.0); // 서버 기본 체력 기준
+        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(40.0);
         player.removePotionEffect(PotionEffectType.WEAKNESS);
         player.removePotionEffect(PotionEffectType.HUNGER);
     }
@@ -38,16 +46,19 @@ public class Zombie extends AbilityBase {
     public void onEat(PlayerItemConsumeEvent event) {
         if (event.getItem().getType() == Material.GOLDEN_APPLE) {
             Player p = event.getPlayer();
-            // 1틱 뒤 실행 (기존 효과 적용 후 변조)
-            org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
-                p.removePotionEffect(PotionEffectType.WEAKNESS);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1)); // 재생 2 (5초)
+            org.bukkit.Bukkit.getScheduler().runTaskLater(
+                    org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
+                        p.removePotionEffect(PotionEffectType.WEAKNESS);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
 
-                // 30초 후 다시 나약함 부여
-                org.bukkit.Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
-                    if (p.isOnline()) p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
-                }, 600L);
-            }, 1L);
+                        org.bukkit.Bukkit.getScheduler().runTaskLater(
+                                org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
+                                    if (p.isOnline()) {
+                                        p.addPotionEffect(new PotionEffect(
+                                                PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
+                                    }
+                                }, 600L);
+                    }, 1L);
         }
     }
 }
