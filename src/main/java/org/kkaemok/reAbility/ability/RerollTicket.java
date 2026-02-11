@@ -4,6 +4,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public enum RerollTicket {
+    TICKET_C("C등급 이하 리롤권", new LinkedHashMap<>() {{
+        put(AbilityGrade.D, 60.0);
+        put(AbilityGrade.C, 40.0);
+    }}),
     TICKET_B1("B등급 이상 랜덤 리롤권 I", new LinkedHashMap<>() {{
         put(AbilityGrade.B, 60.0);
         put(AbilityGrade.A, 35.0);

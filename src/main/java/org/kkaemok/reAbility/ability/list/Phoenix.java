@@ -40,7 +40,7 @@ public class Phoenix extends AbilityBase {
     }
 
     @Override
-    public void onActivate(Player player) {
+    public void onAcquire(Player player) {
         player.getInventory().addItem(new ItemStack(Material.TOTEM_OF_UNDYING, 20));
         player.sendMessage(Component.text("[!] 불사의 토템 20개를 획득했습니다.", NamedTextColor.GOLD));
     }

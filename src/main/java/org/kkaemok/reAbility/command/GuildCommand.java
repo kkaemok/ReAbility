@@ -59,6 +59,10 @@ public class GuildCommand implements CommandExecutor {
                 guildManager.acceptJoin(player, args[1]);
                 break;
 
+            case "탈퇴":
+                guildManager.leaveGuild(player);
+                break;
+
             case "확장":
                 handleExpansion(player);
                 break;
@@ -106,6 +110,7 @@ public class GuildCommand implements CommandExecutor {
         p.sendMessage("§f/길드 생성 [이름] [색상] §7(다이아 100개)");
         p.sendMessage("§f/길드 요청 [길드명]");
         p.sendMessage("§f/길드 수락 [플레이어명]");
+        p.sendMessage("§f/길드 탈퇴");
         p.sendMessage("§f/길드 확장 §7(다이아/네더라이트 소모)");
         p.sendMessage("§f/길드챗 §7(토글)");
     }

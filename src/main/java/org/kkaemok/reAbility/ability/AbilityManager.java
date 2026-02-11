@@ -76,6 +76,12 @@ public class AbilityManager {
         }
     }
 
+    public void reloadPlayerData() {
+        playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+        playerDataMap.clear();
+        loadPlayerData();
+    }
+
     private void registerAbilities() {
         register(new Eater(plugin));
         register(new Lighter());
@@ -151,6 +157,7 @@ public class AbilityManager {
         long duration = ability.getGrade().getDurationInMillis();
         data.setExpiryTime(System.currentTimeMillis() + duration);
 
+        ability.onAcquire(player);
         ability.onActivate(player);
         if (isHighGrade(ability.getGrade())) {
             applyHighGradeBuffs(player);

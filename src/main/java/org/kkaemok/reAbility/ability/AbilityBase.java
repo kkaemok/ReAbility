@@ -22,6 +22,11 @@ public abstract class AbilityBase implements Listener {
         // 기본적으로 메시지를 보내거나 초기 버프를 줌
     }
 
+    // Called once when the ability is first acquired.
+    public void onAcquire(Player player) {
+        // no-op by default
+    }
+
     // 능력이 비활성화될 때 (접속 종료, 교체 등) 실행
     public void onDeactivate(Player player) {
         // 버프 제거 등

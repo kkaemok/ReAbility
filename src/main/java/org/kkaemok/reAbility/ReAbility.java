@@ -3,6 +3,7 @@ package org.kkaemok.reAbility;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.command.GuildCommand;
+import org.kkaemok.reAbility.command.KeepCommand;
 import org.kkaemok.reAbility.command.MainCommand;
 import org.kkaemok.reAbility.command.TeleportCommand;
 import org.kkaemok.reAbility.event.TicketListener;
@@ -49,7 +50,9 @@ public class ReAbility extends JavaPlugin {
 
     private void registerCommands(TeleportManager teleportManager) {
         try {
-            Objects.requireNonNull(getCommand("능력")).setExecutor(new MainCommand(ticketItemManager));
+            Objects.requireNonNull(getCommand("능력")).setExecutor(
+                    new MainCommand(this, ticketItemManager, abilityManager, guildManager));
+            Objects.requireNonNull(getCommand("유지권")).setExecutor(new KeepCommand(ticketItemManager));
 
             GuildCommand guildCmd = new GuildCommand(guildManager);
             Objects.requireNonNull(getCommand("길드")).setExecutor(guildCmd);

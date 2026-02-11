@@ -93,6 +93,14 @@ public class GuildManager {
         }
     }
 
+    public void reloadGuilds() {
+        guildConfig = YamlConfiguration.loadConfiguration(guildFile);
+        guilds.clear();
+        pendingRequests.clear();
+        guildChatMode.clear();
+        loadGuilds();
+    }
+
     public Component parseColor(String text) {
         if (text == null || text.isEmpty()) return Component.empty();
         if (text.contains("<") && text.contains(">")) {
@@ -230,8 +238,40 @@ public class GuildManager {
         requester.sendMessage(parseColor("<green>가입 요청을 보냈습니다.</green>"));
     }
 
+    public void leaveGuild(Player player) {
+        GuildData guild = getGuildByMember(player.getUniqueId());
+        if (guild == null) {
+            player.sendMessage(parseColor("<red>[!] 길드에 속해있지 않습니다.</red>"));
+            return;
+        }
+
+        String groupId = "guild_" + guild.name.toLowerCase();
+        guildChatMode.remove(player.getUniqueId());
+
+        if (guild.master.equals(player.getUniqueId())) {
+            removeUserFromGuild(player.getUniqueId(), groupId);
+            guilds.remove(guild.name);
+            saveGuilds();
+
+            Group group = lp.getGroupManager().getGroup(groupId);
+            if (group != null) {
+                lp.getGroupManager().deleteGroup(group);
+            }
+
+            player.sendMessage(parseColor("<yellow>[!] 길드장이 탈퇴하여 길드가 삭제되었습니다.</yellow>"));
+            return;
+        }
+
+        removeUserFromGuild(player.getUniqueId(), groupId);
+        player.sendMessage(parseColor("<green>길드에서 탈퇴했습니다.</green>"));
+    }
+
     private void addUserToGuild(UUID uuid, Group group) {
         lp.getUserManager().modifyUser(uuid, user -> user.data().add(InheritanceNode.builder(group).build()));
+    }
+
+    private void removeUserFromGuild(UUID uuid, String groupId) {
+        lp.getUserManager().modifyUser(uuid, user -> user.data().remove(InheritanceNode.builder(groupId).build()));
     }
 
     private String getColorCode(String name) {
