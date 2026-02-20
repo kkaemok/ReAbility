@@ -167,6 +167,11 @@ public class GuildManager {
             if (onlineRequester != null) {
                 onlineRequester.sendMessage(parseColor("<green>" + guild.name + " 길드에 가입되었습니다!</green>"));
             }
+            List<String> reqs = pendingRequests.get(master.getUniqueId());
+            if (reqs != null) {
+                reqs.remove(requesterName);
+                if (reqs.isEmpty()) pendingRequests.remove(master.getUniqueId());
+            }
         }
     }
 
@@ -230,6 +235,11 @@ public class GuildManager {
             return;
         }
 
+        List<String> reqs = pendingRequests.computeIfAbsent(guild.master, k -> new ArrayList<>());
+        if (!reqs.contains(requester.getName())) {
+            reqs.add(requester.getName());
+        }
+
         Player master = Bukkit.getPlayer(guild.master);
         if (master != null) {
             master.sendMessage(parseColor("<yellow>[!] <white>" + requester.getName()
@@ -251,6 +261,7 @@ public class GuildManager {
         if (guild.master.equals(player.getUniqueId())) {
             removeUserFromGuild(player.getUniqueId(), groupId);
             guilds.remove(guild.name);
+            pendingRequests.remove(player.getUniqueId());
             saveGuilds();
 
             Group group = lp.getGroupManager().getGroup(groupId);

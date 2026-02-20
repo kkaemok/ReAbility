@@ -12,7 +12,9 @@ import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
 import org.kkaemok.reAbility.ability.AbilityManager;
+import org.kkaemok.reAbility.ability.list.SoloLeveler;
 import org.kkaemok.reAbility.data.PlayerData;
+import org.kkaemok.reAbility.utils.AbilityTags;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,6 +49,9 @@ public class MilkEffectListener implements Listener {
 
         Map<PotionEffectType, PotionEffect> snapshot = snapshotEffects(player.getActivePotionEffects());
         Bukkit.getScheduler().runTaskLater(plugin, () -> reapplyAbilityEffects(player, snapshot), 1L);
+        if (player.getScoreboardTags().contains(AbilityTags.JOKER_ILLUSION)) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> reapplyJokerIllusion(player), 1L);
+        }
     }
 
     private void reapplyAbilityEffects(Player player, Map<PotionEffectType, PotionEffect> snapshot) {
@@ -77,6 +82,14 @@ public class MilkEffectListener implements Listener {
                 applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
                 applyEffect(player, PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 0);
             }
+            case "SHODDY_WIZARD" -> {
+                if (player.isSneaking()) {
+                    applyEffect(player, PotionEffectType.SPEED, PotionEffect.INFINITE_DURATION, 9);
+                } else {
+                    applyEffect(player, PotionEffectType.SLOWNESS, PotionEffect.INFINITE_DURATION, 0);
+                }
+            }
+            case "SOLO_LEVELER" -> SoloLeveler.applyLevelEffects(player);
             case "MINER" -> {
                 applyEffect(player, PotionEffectType.HASTE, PotionEffect.INFINITE_DURATION, 1);
                 if (player.getLocation().getBlockY() <= 0) {
@@ -84,6 +97,11 @@ public class MilkEffectListener implements Listener {
                     applyEffect(player, PotionEffectType.STRENGTH, 40, 0);
                     applyEffect(player, PotionEffectType.REGENERATION, 40, 0);
                 }
+            }
+            case "ELEMENTER" -> {
+                applyEffect(player, PotionEffectType.WATER_BREATHING, PotionEffect.INFINITE_DURATION, 0);
+                applyEffect(player, PotionEffectType.FIRE_RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
+                applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
             }
             case "WEREWOLF" -> {
                 if (isNight(player)) {
@@ -105,6 +123,13 @@ public class MilkEffectListener implements Listener {
 
     private void applyEffect(Player player, PotionEffectType type, int duration, int amplifier) {
         player.addPotionEffect(new PotionEffect(type, duration, amplifier, false, false));
+    }
+
+    private void reapplyJokerIllusion(Player player) {
+        if (!player.isOnline()) return;
+        if (!player.getScoreboardTags().contains(AbilityTags.JOKER_ILLUSION)) return;
+        player.addPotionEffect(new PotionEffect(
+                PotionEffectType.WEAKNESS, PotionEffect.INFINITE_DURATION, 99, false, false));
     }
 
     private void reapplyExtraBuffs(Player player, String abilityName, Map<PotionEffectType, PotionEffect> snapshot) {

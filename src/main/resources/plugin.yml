@@ -1,5 +1,5 @@
 name: ReAbility
-version: '2.1'
+version: '2.2'
 main: org.kkaemok.reAbility.ReAbility
 api-version: '1.21'
 depend: [LuckPerms, ProtocolLib]
@@ -7,10 +7,13 @@ depend: [LuckPerms, ProtocolLib]
 commands:
   능력:
     description: 능력 관련 커맨드를 실행합니다.
-    usage: /능력 <뽑기|설명|리로드> <B1|B2|C|A|S>
+    usage: /능력 <뽑기|설명|리로드|리스트|주인> <B1|B2|C|A|S>
   유지권:
     description: 능력 유지권을 지급합니다.
     usage: /유지권 <일수>
+  방어막:
+    description: 크로노스 전용 방어막을 사용합니다.
+    usage: /방어막
   rtp:
     description: 랜덤 텔레포트를 실행합니다.
     usage: /rtp

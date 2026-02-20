@@ -71,6 +71,15 @@ public class AbilityManager {
                 data.setMinedDebris(playerConfig.getInt(path + "mined-debris", 0));
                 data.setLastDebrisReset(playerConfig.getLong(path + "last-debris-reset", System.currentTimeMillis()));
 
+                String dogOwnerStr = playerConfig.getString(path + "dog-owner");
+                if (dogOwnerStr != null && !dogOwnerStr.isEmpty()) {
+                    try {
+                        data.setDogOwnerUuid(UUID.fromString(dogOwnerStr));
+                    } catch (IllegalArgumentException ignored) {
+                        data.setDogOwnerUuid(null);
+                    }
+                }
+
                 playerDataMap.put(uuid, data);
             } catch (IllegalArgumentException ignored) {}
         }
@@ -86,13 +95,19 @@ public class AbilityManager {
         register(new Eater(plugin));
         register(new Lighter());
         register(new HomeLover());
+        register(new ShoddyWizard(plugin, plugin.getGuildManager()));
         register(new Fisherman(plugin));
+        register(new SoloLeveler(plugin));
+        register(new Puppy(plugin));
         register(new Lovebird(plugin, plugin.getGuildManager()));
         register(new Zombie());
         register(new Bomber(plugin));
         register(new Phoenix(plugin));
         register(new Gunslinger(plugin));
         register(new Fighter(plugin));
+        register(new Elementer(plugin, plugin.getGuildManager()));
+        register(new Counter(plugin, plugin.getGuildManager()));
+        register(new Miner(plugin));
         register(new Werewolf(plugin));
         register(new Ghost(plugin));
         register(new Joker(plugin));
@@ -241,6 +256,10 @@ public class AbilityManager {
         return registeredAbilities.get(name);
     }
 
+    public Collection<AbilityBase> getAllAbilities() {
+        return Collections.unmodifiableCollection(registeredAbilities.values());
+    }
+
     public void savePlayerData(UUID uuid) {
         PlayerData data = playerDataMap.get(uuid);
         if (data == null) return;
@@ -252,6 +271,7 @@ public class AbilityManager {
         playerConfig.set(path + "last-diamond-reset", data.getLastDiamondReset());
         playerConfig.set(path + "mined-debris", data.getMinedDebris());
         playerConfig.set(path + "last-debris-reset", data.getLastDebrisReset());
+        playerConfig.set(path + "dog-owner", data.getDogOwnerUuid() != null ? data.getDogOwnerUuid().toString() : null);
 
         try {
             playerConfig.save(playerFile);

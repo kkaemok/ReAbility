@@ -15,6 +15,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.system.SpectatorLockListener;
+import org.kkaemok.reAbility.utils.InventoryUtils;
 
 import java.util.*;
 
@@ -59,6 +61,7 @@ public class SpaceRuler extends AbilityBase {
         if (player.getGameMode() == GameMode.SPECTATOR) {
             player.setGameMode(GameMode.SURVIVAL);
         }
+        player.removeScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
         invinciblePlayers.remove(player.getUniqueId());
     }
 
@@ -91,6 +94,7 @@ public class SpaceRuler extends AbilityBase {
         rtpCooldown.put(player.getUniqueId(), now + 60000);
 
         player.setGameMode(GameMode.SPECTATOR);
+        player.addScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
         player.sendMessage(Component.text("[!] RTP 후 30초 동안 유령 상태가 됩니다.", NamedTextColor.AQUA));
 
         new BukkitRunnable() {
@@ -98,6 +102,7 @@ public class SpaceRuler extends AbilityBase {
             public void run() {
                 if (player.isOnline()) {
                     player.setGameMode(GameMode.SURVIVAL);
+                    player.removeScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
                     Block b = player.getWorld().getHighestBlockAt(player.getLocation());
                     player.teleport(b.getLocation().add(0, 1, 0));
                     player.sendMessage(Component.text("[!] 유령 상태가 종료되었습니다.", NamedTextColor.GRAY));
@@ -118,36 +123,36 @@ public class SpaceRuler extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        if (item.getType() == Material.DIAMOND && item.getAmount() >= 100) {
-            if (player.getInventory().contains(Material.NETHERITE_INGOT, 1)) {
-                if (now < skill1Cooldown.getOrDefault(player.getUniqueId(), 0L)) {
-                    player.sendMessage(Component.text("공간 이동 쿨타임입니다.", NamedTextColor.RED));
-                    return;
-                }
-
-                item.setAmount(item.getAmount() - 100);
-                removeItem(player, Material.NETHERITE_INGOT, 1);
-
-                skill1Cooldown.put(player.getUniqueId(), now + 10800000);
-
-                List<Player> targets = new ArrayList<>(Bukkit.getOnlinePlayers());
-                if (targets.isEmpty()) {
-                    player.sendMessage(Component.text("이동할 대상이 없습니다.", NamedTextColor.RED));
-                    return;
-                }
-
-                Player target = targets.get(random.nextInt(targets.size()));
-
-                int offsetX = random.nextInt(2001) - 1000;
-                int offsetZ = random.nextInt(2001) - 1000;
-                Location tLoc = target.getLocation().add(offsetX, 0, offsetZ);
-                tLoc.setY(tLoc.getWorld().getHighestBlockYAt(tLoc) + 1);
-
-                player.teleport(tLoc);
-                broadcastSkill(player, "{공간 이동}");
-                player.sendMessage(Component.text("[!] " + target.getName() + " 주변으로 이동했습니다.", NamedTextColor.LIGHT_PURPLE));
+        if (item.getType() == Material.DIAMOND
+                && InventoryUtils.hasAtLeast(player, Material.DIAMOND, 100)
+                && InventoryUtils.hasAtLeast(player, Material.NETHERITE_INGOT, 1)) {
+            if (now < skill1Cooldown.getOrDefault(player.getUniqueId(), 0L)) {
+                player.sendMessage(Component.text("공간 이동 쿨타임입니다.", NamedTextColor.RED));
                 return;
             }
+
+            if (!InventoryUtils.consume(player, Material.DIAMOND, 100)) return;
+            if (!InventoryUtils.consume(player, Material.NETHERITE_INGOT, 1)) return;
+
+            skill1Cooldown.put(player.getUniqueId(), now + 10800000);
+
+            List<Player> targets = new ArrayList<>(Bukkit.getOnlinePlayers());
+            if (targets.isEmpty()) {
+                player.sendMessage(Component.text("이동할 대상이 없습니다.", NamedTextColor.RED));
+                return;
+            }
+
+            Player target = targets.get(random.nextInt(targets.size()));
+
+            int offsetX = random.nextInt(2001) - 1000;
+            int offsetZ = random.nextInt(2001) - 1000;
+            Location tLoc = target.getLocation().add(offsetX, 0, offsetZ);
+            tLoc.setY(tLoc.getWorld().getHighestBlockYAt(tLoc) + 1);
+
+            player.teleport(tLoc);
+            broadcastSkill(player, "{공간 이동}");
+            player.sendMessage(Component.text("[!] " + target.getName() + " 주변으로 이동했습니다.", NamedTextColor.LIGHT_PURPLE));
+            return;
         }
 
         if (item.getType() == Material.DIAMOND && item.getAmount() >= 50) {
@@ -156,7 +161,7 @@ public class SpaceRuler extends AbilityBase {
                 return;
             }
 
-            item.setAmount(item.getAmount() - 50);
+            if (!InventoryUtils.consume(player, Material.DIAMOND, 50)) return;
             skill2Cooldown.put(player.getUniqueId(), now + 600000);
 
             invinciblePlayers.add(player.getUniqueId());
@@ -174,22 +179,6 @@ public class SpaceRuler extends AbilityBase {
                     }
                 }
             }.runTaskLater(plugin, 600L);
-        }
-    }
-
-    private void removeItem(Player player, Material type, int amount) {
-        for (ItemStack is : player.getInventory().getContents()) {
-            if (is != null && is.getType() == type) {
-                int newAmount = is.getAmount() - amount;
-                if (newAmount > 0) {
-                    is.setAmount(newAmount);
-                    break;
-                } else {
-                    player.getInventory().remove(is);
-                    amount = -newAmount;
-                    if (amount == 0) break;
-                }
-            }
         }
     }
 

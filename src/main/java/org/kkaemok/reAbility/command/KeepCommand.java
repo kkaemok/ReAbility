@@ -3,11 +3,16 @@ package org.kkaemok.reAbility.command;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.kkaemok.reAbility.item.TicketItemManager;
 
-public class KeepCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.List;
+
+public class KeepCommand implements CommandExecutor, TabCompleter {
 
     private final TicketItemManager itemManager;
 
@@ -49,5 +54,15 @@ public class KeepCommand implements CommandExecutor {
         player.getInventory().addItem(itemManager.createKeepTicket(days));
         player.sendMessage("[!] 능력 유지권(" + days + "일)을 지급했습니다.");
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                      @NotNull String alias, @NotNull String[] args) {
+        if (args.length != 1) return List.of();
+        List<String> candidates = List.of("1", "3", "7", "14", "30");
+        List<String> matches = new ArrayList<>();
+        StringUtil.copyPartialMatches(args[0], candidates, matches);
+        return matches;
     }
 }

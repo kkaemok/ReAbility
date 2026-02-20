@@ -4,6 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.command.GuildCommand;
 import org.kkaemok.reAbility.command.KeepCommand;
+import org.kkaemok.reAbility.command.BarrierCommand;
 import org.kkaemok.reAbility.command.MainCommand;
 import org.kkaemok.reAbility.command.TeleportCommand;
 import org.kkaemok.reAbility.event.TicketListener;
@@ -50,17 +51,29 @@ public class ReAbility extends JavaPlugin {
 
     private void registerCommands(TeleportManager teleportManager) {
         try {
-            Objects.requireNonNull(getCommand("능력")).setExecutor(
-                    new MainCommand(this, ticketItemManager, abilityManager, guildManager));
-            Objects.requireNonNull(getCommand("유지권")).setExecutor(new KeepCommand(ticketItemManager));
+            MainCommand mainCmd = new MainCommand(this, ticketItemManager, abilityManager, guildManager);
+            Objects.requireNonNull(getCommand("능력")).setExecutor(mainCmd);
+            Objects.requireNonNull(getCommand("능력")).setTabCompleter(mainCmd);
+
+            KeepCommand keepCmd = new KeepCommand(ticketItemManager);
+            Objects.requireNonNull(getCommand("유지권")).setExecutor(keepCmd);
+            Objects.requireNonNull(getCommand("유지권")).setTabCompleter(keepCmd);
+
+            BarrierCommand barrierCmd = new BarrierCommand(abilityManager);
+            Objects.requireNonNull(getCommand("방어막")).setExecutor(barrierCmd);
+            Objects.requireNonNull(getCommand("방어막")).setTabCompleter(barrierCmd);
 
             GuildCommand guildCmd = new GuildCommand(guildManager);
             Objects.requireNonNull(getCommand("길드")).setExecutor(guildCmd);
+            Objects.requireNonNull(getCommand("길드")).setTabCompleter(guildCmd);
             Objects.requireNonNull(getCommand("길드챗")).setExecutor(guildCmd);
+            Objects.requireNonNull(getCommand("길드챗")).setTabCompleter(guildCmd);
 
             TeleportCommand tpCmd = new TeleportCommand(teleportManager);
             Objects.requireNonNull(getCommand("tpa")).setExecutor(tpCmd);
+            Objects.requireNonNull(getCommand("tpa")).setTabCompleter(tpCmd);
             Objects.requireNonNull(getCommand("rtp")).setExecutor(tpCmd);
+            Objects.requireNonNull(getCommand("rtp")).setTabCompleter(tpCmd);
         } catch (NullPointerException e) {
             getLogger().log(Level.WARNING, "plugin.yml의 명령어 설정을 확인하세요.", e);
         }
@@ -77,6 +90,7 @@ public class ReAbility extends JavaPlugin {
         pm.registerEvents(new AbilityListener(abilityManager), this);
         pm.registerEvents(new SneakSkillListener(abilityManager), this);
         pm.registerEvents(new MilkEffectListener(this, abilityManager), this);
+        pm.registerEvents(new SpectatorLockListener(), this);
     }
 
     @Override

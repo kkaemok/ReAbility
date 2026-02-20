@@ -17,6 +17,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.utils.InventoryUtils;
 
 public class Werewolf extends AbilityBase {
     private final ReAbility plugin;
@@ -100,9 +101,9 @@ public class Werewolf extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND || item.getAmount() < 100) return;
+        if (item.getType() != Material.DIAMOND) return;
 
-        item.setAmount(item.getAmount() - 100);
+        if (!InventoryUtils.consume(player, Material.DIAMOND, 100)) return;
         player.getWorld().setTime(13000);
 
         Bukkit.broadcast(Component.text("==========", NamedTextColor.DARK_RED));

@@ -4,10 +4,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.util.StringUtil;
 import org.kkaemok.reAbility.system.TeleportManager;
 
-public class TeleportCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.List;
+
+public class TeleportCommand implements CommandExecutor, TabCompleter {
     private final TeleportManager tpManager;
 
     public TeleportCommand(TeleportManager tpManager) {
@@ -40,5 +45,29 @@ public class TeleportCommand implements CommandExecutor {
             }
         }
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!(sender instanceof Player)) return List.of();
+
+        if (alias.equalsIgnoreCase("rtp")) return List.of();
+
+        if (alias.equalsIgnoreCase("tpa")) {
+            if (args.length == 1) {
+                List<String> candidates = new ArrayList<>();
+                candidates.add("수락");
+                candidates.add("거절");
+                candidates.add("accept");
+                candidates.add("deny");
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    candidates.add(p.getName());
+                }
+                List<String> matches = new ArrayList<>();
+                StringUtil.copyPartialMatches(args[0], candidates, matches);
+                return matches;
+            }
+        }
+        return List.of();
     }
 }

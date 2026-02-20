@@ -4,11 +4,16 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.util.StringUtil;
 import org.kkaemok.reAbility.guild.GuildManager;
 import org.jetbrains.annotations.NotNull;
 
-public class GuildCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.List;
+
+public class GuildCommand implements CommandExecutor, TabCompleter {
 
     private final GuildManager guildManager;
 
@@ -113,5 +118,48 @@ public class GuildCommand implements CommandExecutor {
         p.sendMessage("§f/길드 탈퇴");
         p.sendMessage("§f/길드 확장 §7(다이아/네더라이트 소모)");
         p.sendMessage("§f/길드챗 §7(토글)");
+    }
+
+    @Override
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                      @NotNull String alias, @NotNull String[] args) {
+        if (!(sender instanceof Player)) return List.of();
+        Player player = (Player) sender;
+
+        if (alias.equalsIgnoreCase("길드챗")) return List.of();
+
+        if (args.length == 1) {
+            return partialMatches(args[0], List.of("생성", "요청", "수락", "탈퇴", "확장"));
+        }
+
+        if (args.length == 2) {
+            switch (args[0]) {
+                case "요청" -> {
+                    return partialMatches(args[1], new ArrayList<>(guildManager.guilds.keySet()));
+                }
+                case "수락" -> {
+                    List<String> reqs = guildManager.pendingRequests.getOrDefault(player.getUniqueId(), List.of());
+                    return partialMatches(args[1], new ArrayList<>(reqs));
+                }
+                default -> {
+                    return List.of();
+                }
+            }
+        }
+
+        if (args.length == 3 && args[0].equals("생성")) {
+            return partialMatches(args[2], List.of(
+                    "빨강", "파랑", "분홍", "하늘", "주황", "노랑",
+                    "검정", "하양", "초록", "연두", "보라"
+            ));
+        }
+
+        return List.of();
+    }
+
+    private List<String> partialMatches(String token, List<String> candidates) {
+        List<String> matches = new ArrayList<>();
+        StringUtil.copyPartialMatches(token, candidates, matches);
+        return matches;
     }
 }

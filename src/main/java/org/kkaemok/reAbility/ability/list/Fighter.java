@@ -14,6 +14,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.utils.InventoryUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -74,7 +75,7 @@ public class Fighter extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND || item.getAmount() < 100) return;
+        if (item.getType() != Material.DIAMOND) return;
 
         long now = System.currentTimeMillis();
         if (now < skillCooldown.getOrDefault(player.getUniqueId(), 0L)) {
@@ -82,7 +83,7 @@ public class Fighter extends AbilityBase {
             return;
         }
 
-        item.setAmount(item.getAmount() - 100);
+        if (!InventoryUtils.consume(player, Material.DIAMOND, 100)) return;
         skillCooldown.put(player.getUniqueId(), now + 10000);
 
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);

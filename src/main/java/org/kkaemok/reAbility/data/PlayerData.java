@@ -14,6 +14,8 @@ public class PlayerData {
     private int minedDebris;
     private long lastDebrisReset;
 
+    private UUID dogOwnerUuid;
+
     public PlayerData(UUID uuid) {
         this.uuid = uuid;
         this.abilityName = null;
@@ -24,6 +26,7 @@ public class PlayerData {
         this.lastDiamondReset = System.currentTimeMillis();
         this.minedDebris = 0;
         this.lastDebrisReset = System.currentTimeMillis();
+        this.dogOwnerUuid = null;
     }
 
     public UUID getUuid() { return uuid; }
@@ -64,4 +67,7 @@ public class PlayerData {
         this.minedDebris = 0;
         this.lastDebrisReset = System.currentTimeMillis();
     }
+
+    public UUID getDogOwnerUuid() { return dogOwnerUuid; }
+    public void setDogOwnerUuid(UUID dogOwnerUuid) { this.dogOwnerUuid = dogOwnerUuid; }
 }

@@ -16,6 +16,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.system.SpectatorLockListener;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +56,10 @@ public class Ghost extends AbilityBase {
         player.removePotionEffect(PotionEffectType.SPEED);
         player.setAllowFlight(false);
         showPlayerToAll(player);
+        player.removeScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
+        if (player.getGameMode() == GameMode.SPECTATOR) {
+            player.setGameMode(GameMode.SURVIVAL);
+        }
     }
 
     private void startGhostTask() {
@@ -136,6 +141,7 @@ public class Ghost extends AbilityBase {
 
         GameMode prevMode = player.getGameMode();
         player.setGameMode(GameMode.SPECTATOR);
+        player.addScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
         player.playSound(player.getLocation(), Sound.ENTITY_GHAST_WARN, 1.0f, 0.5f);
 
         new BukkitRunnable() {
@@ -143,6 +149,7 @@ public class Ghost extends AbilityBase {
             public void run() {
                 if (player.isOnline()) {
                     player.setGameMode(prevMode);
+                    player.removeScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
                     player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 600, 0));
                     player.sendMessage(Component.text("[!] 유령 상태가 종료되었습니다. 힘 1 효과를 획득합니다.",
                             NamedTextColor.GOLD));
