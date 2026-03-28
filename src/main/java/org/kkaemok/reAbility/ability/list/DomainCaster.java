@@ -127,6 +127,7 @@ public class DomainCaster extends AbilityBase {
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         if (getHome(player) == null) {
             player.sendMessage(Component.text("영역 홈이 없습니다. /domainhome set으로 먼저 설정하세요.",

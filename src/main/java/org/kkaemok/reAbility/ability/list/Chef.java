@@ -98,6 +98,7 @@ public class Chef extends AbilityBase {
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         if (!event.getAction().isRightClick()) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         if (isHasAbility(player) && player.getFoodLevel() >= 20 && canOvereat(player)) {
             if (event.getItem() != null && event.getItem().getType().isEdible()) {

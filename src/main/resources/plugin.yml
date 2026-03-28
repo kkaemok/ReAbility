@@ -16,6 +16,10 @@ commands:
     description: 플레이어 능력 명령어
     usage: /능력 <하위명령어>
     aliases: [능력]
+  owner:
+    description: 강아지 주인 설정 명령어
+    usage: /주인 <설정|해제> [플레이어]
+    aliases: [주인]
   shop:
     description: 기본 상점 명령어
     usage: /상점

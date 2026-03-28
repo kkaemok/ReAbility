@@ -73,6 +73,7 @@ public class SpaceRuler extends AbilityBase {
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();

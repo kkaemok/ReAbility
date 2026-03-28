@@ -93,6 +93,7 @@ public class Valkyrie extends AbilityBase {
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (!event.getAction().isRightClick()) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
         SkillCost wingCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "wings", Material.NETHERITE_SCRAP, 2);
         if (player.getInventory().getItemInMainHand().getType() != wingCost.getItem()) return;

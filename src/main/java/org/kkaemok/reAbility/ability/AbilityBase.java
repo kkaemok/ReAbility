@@ -1,7 +1,9 @@
 package org.kkaemok.reAbility.ability;
 
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 public abstract class AbilityBase implements Listener {
 
@@ -35,5 +37,12 @@ public abstract class AbilityBase implements Listener {
     // 웅크리기 스킬 (기본은 아무것도 안함, 필요한 능력만 오버라이드)
     public void onSneakSkill(Player player) {
 
+    }
+
+    protected final boolean shouldIgnoreSneakRightClickBlock(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return false;
+        if (!event.getPlayer().isSneaking()) return false;
+        if (event.getClickedBlock() == null) return false;
+        return event.getClickedBlock().getType().isInteractable();
     }
 }

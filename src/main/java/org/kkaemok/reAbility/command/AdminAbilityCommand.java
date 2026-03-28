@@ -242,7 +242,11 @@ public class AdminAbilityCommand implements CommandExecutor, TabCompleter {
             timeLeft = hours + "시간";
         }
 
+        if (data.getExpiryTime() != Long.MAX_VALUE) {
+            timeLeft = abilityManager.formatRemainingAbilityTime(data.getExpiryTime());
+        }
         sender.sendMessage(target.getName() + ": " + display + " (" + grade + ", " + timeLeft + ")");
+        sender.sendMessage("남은 시간(시/분): " + abilityManager.formatRemainingAbilityTime(data.getExpiryTime()));
     }
 
     private void handleDescribe(CommandSender sender, String[] args) {

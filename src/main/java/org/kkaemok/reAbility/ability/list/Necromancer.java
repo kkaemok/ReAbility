@@ -208,6 +208,7 @@ public class Necromancer extends AbilityBase {
         if (event.getHand() != EquipmentSlot.HAND) return;
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;

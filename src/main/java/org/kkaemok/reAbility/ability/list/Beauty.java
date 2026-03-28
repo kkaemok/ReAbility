@@ -127,6 +127,7 @@ public class Beauty extends AbilityBase {
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (!event.getAction().isRightClick()) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         ItemStack item = player.getInventory().getItemInMainHand();
         SkillCost scentCost = plugin.getAbilityConfigManager()

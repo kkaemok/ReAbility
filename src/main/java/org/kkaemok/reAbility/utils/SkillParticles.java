@@ -341,7 +341,19 @@ public final class SkillParticles {
 
     private static void spawn(World world, Particle particle, Location loc, int count,
                               double ox, double oy, double oz) {
-        world.spawnParticle(particle, loc, count, ox, oy, oz, 0.0);
+        Object defaultData = defaultDataFor(particle);
+        try {
+            if (defaultData != null) {
+                world.spawnParticle(particle, loc, count, ox, oy, oz, 0.0, defaultData);
+                return;
+            }
+
+            if (particle.getDataType() == Void.class) {
+                world.spawnParticle(particle, loc, count, ox, oy, oz, 0.0);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Do not break skill execution due to a particle data mismatch.
+        }
     }
 
     private static void spawn(World world, Particle particle, Location loc, int count,
@@ -349,8 +361,26 @@ public final class SkillParticles {
         if (data == null) {
             spawn(world, particle, loc, count, ox, oy, oz);
         } else {
-            world.spawnParticle(particle, loc, count, ox, oy, oz, 0.0, data);
+            try {
+                world.spawnParticle(particle, loc, count, ox, oy, oz, 0.0, data);
+            } catch (IllegalArgumentException ignored) {
+                // Do not break skill execution due to a particle data mismatch.
+            }
         }
+    }
+
+    private static Object defaultDataFor(Particle particle) {
+        Class<?> dataType = particle.getDataType();
+        if (dataType == Color.class) {
+            return Color.WHITE;
+        }
+        if (dataType == Particle.DustOptions.class) {
+            return WHITE;
+        }
+        if (dataType == Particle.DustTransition.class) {
+            return PRISM;
+        }
+        return null;
     }
 
     private static void burst(World world, Location center, Particle particle, int count, double spread) {

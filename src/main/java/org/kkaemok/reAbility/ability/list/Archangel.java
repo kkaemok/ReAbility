@@ -3,6 +3,7 @@ package org.kkaemok.reAbility.ability.list;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -11,17 +12,21 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
@@ -43,6 +48,9 @@ public class Archangel extends AbilityBase {
     private final Map<UUID, Location> respawnLocations = new HashMap<>();
     private final Map<UUID, UUID> pendingDonor = new HashMap<>();
     private final Map<UUID, Long> spearWeaknessUntil = new HashMap<>();
+    private final Map<UUID, Long> wingbeatActiveUntil = new HashMap<>();
+    private final Map<UUID, Boolean> previousAllowFlight = new HashMap<>();
+    private final Map<UUID, Boolean> previousFlying = new HashMap<>();
 
     public Archangel(ReAbility plugin) {
         this.plugin = plugin;
@@ -75,6 +83,14 @@ public class Archangel extends AbilityBase {
 
     @Override
     public void onDeactivate(Player player) {
+        UUID uuid = player.getUniqueId();
+        pendingDonor.remove(uuid);
+        noAttackUntil.remove(uuid);
+        respawnLocations.remove(uuid);
+        wingbeatActiveUntil.remove(uuid);
+        previousAllowFlight.remove(uuid);
+        previousFlying.remove(uuid);
+
         removeArchangelHealth(player);
         player.removePotionEffect(PotionEffectType.REGENERATION);
         player.removePotionEffect(PotionEffectType.RESISTANCE);
@@ -83,10 +99,16 @@ public class Archangel extends AbilityBase {
 
     @EventHandler
     public void onSelectTarget(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         Player angel = event.getPlayer();
         if (!isHasAbility(angel)) return;
         if (!angel.isSneaking()) return;
         if (!(event.getRightClicked() instanceof Player target)) return;
+        if (isAttackLocked(angel)) {
+            angel.sendMessage(Component.text("부활 후 안정화 중에는 공격형 능력을 사용할 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
+        event.setCancelled(true);
 
         UUID key = angel.getUniqueId();
         UUID donor = pendingDonor.get(key);
@@ -100,6 +122,10 @@ public class Archangel extends AbilityBase {
         pendingDonor.remove(key);
         if (donorPlayer == null || !donorPlayer.isOnline()) {
             angel.sendMessage(Component.text("대상이 오프라인입니다.", NamedTextColor.RED));
+            return;
+        }
+        if (donor.equals(target.getUniqueId())) {
+            angel.sendMessage(Component.text("체력을 빼앗을 대상과 부여 대상은 서로 달라야 합니다.", NamedTextColor.RED));
             return;
         }
 
@@ -118,13 +144,25 @@ public class Archangel extends AbilityBase {
         Player player = event.getEntity();
         if (!isHasAbility(player)) return;
 
+        UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
-        if (now < soulCooldown.getOrDefault(player.getUniqueId(), 0L)) return;
+        if (now < soulCooldown.getOrDefault(uuid, 0L)) return;
 
-        soulCooldown.put(player.getUniqueId(), now + 86400000);
+        long soulCooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.soul.cooldown-ms", 86400000L);
+        soulCooldown.put(uuid, now + soulCooldownMs);
         event.setKeepInventory(true);
+        event.getDrops().clear();
         event.setKeepLevel(true);
-        respawnLocations.put(player.getUniqueId(), player.getLocation());
+        event.setDroppedExp(0);
+        respawnLocations.put(uuid, player.getLocation());
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            if (player.isDead()) {
+                player.spigot().respawn();
+            }
+        });
     }
 
     @EventHandler
@@ -134,14 +172,36 @@ public class Archangel extends AbilityBase {
             Location loc = respawnLocations.remove(player.getUniqueId());
             if (loc != null) {
                 event.setRespawnLocation(loc);
+                UUID uuid = player.getUniqueId();
+                long noAttackMs = plugin.getAbilityConfigManager()
+                        .getLong(getName(), "skills.soul.no-attack-ms", 10000L);
+                long noAttackTicks = Math.max(1L, noAttackMs / 50L);
+                previousAllowFlight.put(uuid, player.getAllowFlight());
+                previousFlying.put(uuid, player.isFlying());
                 player.setAllowFlight(true);
                 player.setFlying(true);
-                noAttackUntil.put(player.getUniqueId(), System.currentTimeMillis() + 10000);
+                noAttackUntil.put(uuid, System.currentTimeMillis() + noAttackMs);
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     if (!player.isOnline()) return;
-                    player.setFlying(false);
-                    player.setAllowFlight(false);
-                }, 200L);
+                    noAttackUntil.remove(uuid);
+
+                    Boolean restoreAllow = previousAllowFlight.remove(uuid);
+                    Boolean restoreFlying = previousFlying.remove(uuid);
+                    boolean creativeLike = player.getGameMode() == GameMode.CREATIVE
+                            || player.getGameMode() == GameMode.SPECTATOR;
+                    if (creativeLike) return;
+
+                    if (restoreAllow != null) {
+                        player.setAllowFlight(restoreAllow);
+                    } else {
+                        player.setAllowFlight(false);
+                    }
+                    if (restoreFlying != null && restoreFlying && player.getAllowFlight()) {
+                        player.setFlying(true);
+                    } else {
+                        player.setFlying(false);
+                    }
+                }, noAttackTicks);
             }
         }
 
@@ -154,26 +214,36 @@ public class Archangel extends AbilityBase {
 
     @EventHandler
     public void onNoAttack(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player attacker)) return;
-        Long until = noAttackUntil.get(attacker.getUniqueId());
-        if (until == null) return;
-        if (System.currentTimeMillis() > until) {
-            noAttackUntil.remove(attacker.getUniqueId());
-            return;
-        }
+        Player attacker = getAttacker(event.getDamager());
+        if (attacker == null) return;
+        if (!isAttackLocked(attacker)) return;
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onNoAttackProjectile(ProjectileLaunchEvent event) {
+        ProjectileSource shooter = event.getEntity().getShooter();
+        if (!(shooter instanceof Player attacker)) return;
+        if (!isAttackLocked(attacker)) return;
         event.setCancelled(true);
     }
 
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (!event.getAction().isRightClick()) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
 
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
         if (isNetheriteSpear(item.getType())) {
+            if (isAttackLocked(player)) {
+                player.sendMessage(Component.text("부활 후 안정화 중에는 공격형 능력을 사용할 수 없습니다.", NamedTextColor.RED));
+                return;
+            }
             if (now < spearCooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("심판의 창 쿨타임입니다.", NamedTextColor.RED));
                 return;
@@ -219,59 +289,79 @@ public class Archangel extends AbilityBase {
 
         SkillCost wingCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "wingbeat", Material.FEATHER, 64);
-        if (item.getType() == wingCost.getItem()) {
-            if (!wingCost.consumeFromInventory(player)) return;
-            SkillParticles.archangelWingbeat(player);
+        if (item.getType() != wingCost.getItem()) return;
+        if (isAttackLocked(player)) {
+            player.sendMessage(Component.text("부활 후 안정화 중에는 공격형 능력을 사용할 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
 
-            new BukkitRunnable() {
-                int tick = 0;
-                final Map<UUID, Location> lastLoc = new HashMap<>();
+        long wingDurationTicks = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.wingbeat.duration-ticks", 1200L);
+        long wingDurationMs = Math.max(1L, wingDurationTicks) * 50L;
+        Long activeUntil = wingbeatActiveUntil.get(player.getUniqueId());
+        if (activeUntil != null && now < activeUntil) {
+            player.sendMessage(Component.text("천사의 날개짓이 이미 발동 중입니다.", NamedTextColor.RED));
+            return;
+        }
 
-                @Override
-                public void run() {
-                    if (tick >= 1200 || !player.isOnline() || !isHasAbility(player)) {
-                        cancel();
-                        return;
-                    }
+        if (!wingCost.consumeFromHand(player)) return;
+        wingbeatActiveUntil.put(player.getUniqueId(), now + wingDurationMs);
+        SkillParticles.archangelWingbeat(player);
 
-                    for (Player target : Bukkit.getOnlinePlayers()) {
-                        if (!target.getWorld().equals(player.getWorld())) continue;
-                        if (target.getLocation().distanceSquared(player.getLocation()) > 2025) continue;
+        new BukkitRunnable() {
+            long tick = 0L;
+            final Map<UUID, Location> lastLoc = new HashMap<>();
 
-                        if (isSameGuild(player, target)) {
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 2, false, false));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 2, false, false));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 40, 0, false, false));
-                        } else {
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, false));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 5, false, false));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0, false, false));
+            @Override
+            public void run() {
+                if (tick >= wingDurationTicks || !player.isOnline() || player.isDead() || !isHasAbility(player)) {
+                    wingbeatActiveUntil.remove(player.getUniqueId());
+                    cancel();
+                    return;
+                }
 
-                            Location prev = lastLoc.get(target.getUniqueId());
-                            Location nowLoc = target.getLocation();
-                            if (prev != null && prev.distanceSquared(nowLoc) >= 1.0) {
-                                if (Math.random() < 0.3) {
-                                    Location back = nowLoc.clone().subtract(prev);
-                                    target.setVelocity(back.toVector().normalize().multiply(-1.2));
+                for (Player target : Bukkit.getOnlinePlayers()) {
+                    if (!target.getWorld().equals(player.getWorld())) continue;
+                    if (target.getLocation().distanceSquared(player.getLocation()) > 2025) continue;
+
+                    if (isSameGuild(player, target)) {
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 2, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 2, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 40, 0, false, false));
+                    } else {
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 5, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0, false, false));
+
+                        Location prev = lastLoc.get(target.getUniqueId());
+                        Location nowLoc = target.getLocation();
+                        if (prev != null) {
+                            Vector move = nowLoc.toVector().subtract(prev.toVector()).setY(0);
+                            if (move.lengthSquared() >= 1.0) {
+                                Vector forward = nowLoc.getDirection().setY(0);
+                                if (forward.lengthSquared() > 0.0001
+                                        && move.clone().normalize().dot(forward.normalize()) > 0.3
+                                        && Math.random() < 0.3) {
+                                    target.setVelocity(move.normalize().multiply(-2.0));
                                 }
                             }
-                            lastLoc.put(target.getUniqueId(), nowLoc);
                         }
+                        lastLoc.put(target.getUniqueId(), nowLoc);
                     }
-
-                    if (tick % 300 == 0 && tick > 0) {
-                        for (Player target : Bukkit.getOnlinePlayers()) {
-                            if (isSameGuild(player, target)) continue;
-                            if (!target.getWorld().equals(player.getWorld())) continue;
-                            if (target.getLocation().distanceSquared(player.getLocation()) > 2025) continue;
-                            target.damage(50.0, player);
-                        }
-                    }
-                    tick += 20;
                 }
-            }.runTaskTimer(plugin, 0L, 20L);
-        }
+
+                if (tick % 300 == 0 && tick > 0) {
+                    for (Player target : Bukkit.getOnlinePlayers()) {
+                        if (isSameGuild(player, target)) continue;
+                        if (!target.getWorld().equals(player.getWorld())) continue;
+                        if (target.getLocation().distanceSquared(player.getLocation()) > 2025) continue;
+                        target.damage(50.0, player);
+                    }
+                }
+                tick += 20;
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     private void applyArchangelHealth(Player player) {
@@ -292,6 +382,25 @@ public class Archangel extends AbilityBase {
 
     private NamespacedKey getArchangelHealthKey() {
         return new NamespacedKey(plugin, "archangel-health");
+    }
+
+    private boolean isAttackLocked(Player player) {
+        Long until = noAttackUntil.get(player.getUniqueId());
+        if (until == null) return false;
+        if (System.currentTimeMillis() > until) {
+            noAttackUntil.remove(player.getUniqueId());
+            return false;
+        }
+        return true;
+    }
+
+    private Player getAttacker(Entity damager) {
+        if (damager instanceof Player player) return player;
+        if (damager instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player player) return player;
+        }
+        return null;
     }
 
     private boolean isNetheriteSpear(Material type) {

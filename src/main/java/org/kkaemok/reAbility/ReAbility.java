@@ -10,6 +10,7 @@ import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.command.AdminAbilityCommand;
 import org.kkaemok.reAbility.command.DomainHomeCommand;
 import org.kkaemok.reAbility.command.GuildCommand;
+import org.kkaemok.reAbility.command.OwnerCommand;
 import org.kkaemok.reAbility.command.PlayerAbilityCommand;
 import org.kkaemok.reAbility.command.ShopCommand;
 import org.kkaemok.reAbility.command.SoulCommand;
@@ -27,7 +28,7 @@ import org.kkaemok.reAbility.system.AbilityListener;
 import org.kkaemok.reAbility.system.AbilityUpdateTask;
 import org.kkaemok.reAbility.system.CombatManager;
 import org.kkaemok.reAbility.system.JokerCommandAliasListener;
-import org.kkaemok.reAbility.system.MilkEffectListener;
+import org.kkaemok.reAbility.system.AbilityEffectRestoreListener;
 import org.kkaemok.reAbility.system.MiningManager;
 import org.kkaemok.reAbility.system.PlaytimeRewardTask;
 import org.kkaemok.reAbility.system.ReAbilityScoreboard;
@@ -99,6 +100,10 @@ public class ReAbility extends JavaPlugin {
             Objects.requireNonNull(getCommand("ability")).setExecutor(playerCmd);
             Objects.requireNonNull(getCommand("ability")).setTabCompleter(playerCmd);
 
+            OwnerCommand ownerCmd = new OwnerCommand(abilityManager);
+            Objects.requireNonNull(getCommand("owner")).setExecutor(ownerCmd);
+            Objects.requireNonNull(getCommand("owner")).setTabCompleter(ownerCmd);
+
             ShopCommand shopCmd = new ShopCommand(shopMenu);
             Objects.requireNonNull(getCommand("shop")).setExecutor(shopCmd);
 
@@ -152,8 +157,8 @@ public class ReAbility extends JavaPlugin {
         pm.registerEvents(new WorldSettingsListener(this), this);
         pm.registerEvents(new MiningManager(this, abilityManager), this);
         pm.registerEvents(new AbilityListener(abilityManager), this);
-        pm.registerEvents(new SneakSkillListener(abilityManager), this);
-        pm.registerEvents(new MilkEffectListener(this, abilityManager), this);
+        pm.registerEvents(new SneakSkillListener(this, abilityManager), this);
+        pm.registerEvents(new AbilityEffectRestoreListener(this, abilityManager), this);
         pm.registerEvents(new SpectatorLockListener(), this);
         pm.registerEvents(new JokerCommandAliasListener(), this);
         pm.registerEvents(scoreboard, this);

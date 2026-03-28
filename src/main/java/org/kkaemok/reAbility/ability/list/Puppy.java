@@ -37,7 +37,8 @@ public class Puppy extends AbilityBase {
     public String[] getDescription() {
         return new String[]{
                 "100칸 이내 플레이어의 움직임을 감지.",
-                "주인을 지정할 수 있으며, 주인 곁에 있으면 힘 1 획득."
+                "주인을 지정할 수 있으며, 주인 곁에 있으면 힘 1 획득.",
+                "주인 설정: /주인 설정 <플레이어>, 해제: /주인 해제"
         };
     }
 

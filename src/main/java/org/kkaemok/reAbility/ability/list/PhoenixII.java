@@ -84,6 +84,7 @@ public class PhoenixII extends AbilityBase {
         Player player = event.getPlayer();
         if (!isHasAbility(player)) return;
         if (!event.getAction().isRightClick()) return;
+        if (shouldIgnoreSneakRightClickBlock(event)) return;
         SkillCost cost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "death_evade", Material.DIAMOND_BLOCK, 10);
         if (player.getInventory().getItemInMainHand().getType() != cost.getItem()) return;

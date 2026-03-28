@@ -25,7 +25,7 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (!(sender instanceof Player player)) return true;
 
-        if (command.getName().equalsIgnoreCase("길드챗")) {
+        if (command.getName().equalsIgnoreCase("guildchat")) {
             guildManager.toggleGuildChat(player);
             return true;
         }
@@ -134,7 +134,7 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
         if (!(sender instanceof Player)) return List.of();
         Player player = (Player) sender;
 
-        if (command.getName().equalsIgnoreCase("길드챗")) return List.of();
+        if (command.getName().equalsIgnoreCase("guildchat")) return List.of();
 
         if (args.length == 1) {
             return partialMatches(args[0], List.of("생성", "요청", "수락", "탈퇴", "확장"));

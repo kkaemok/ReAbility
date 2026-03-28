@@ -66,6 +66,7 @@ public class PlayerAbilityCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(Player player) {
         player.sendMessage("사용법: /능력 <설명|리스트|메뉴|핑|버전|상자|송금> ...");
+        player.sendMessage("강아지 능력 주인 설정: /주인 <설정|해제> [플레이어]");
     }
 
     private void handleDescribe(Player player, String[] args) {

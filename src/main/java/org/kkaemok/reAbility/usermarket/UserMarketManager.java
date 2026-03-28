@@ -38,6 +38,8 @@ public class UserMarketManager implements Listener {
     private static final int SELL_ITEM_SLOT = 13;
     private static final int SELL_CONFIRM_SLOT = 15;
     private static final int SELL_CANCEL_SLOT = 11;
+    private static final int SELL_GUIDE_SLOT = 4;
+    private static final int SELL_SLOT_HINT_SLOT = 22;
 
     private static final int MARKET_MENU_SIZE = 54;
     private static final int MARKET_ITEMS_PER_PAGE = 45;
@@ -65,15 +67,24 @@ public class UserMarketManager implements Listener {
 
     public void openSellMenu(Player player) {
         SellMenuHolder holder = new SellMenuHolder();
-        Inventory inv = Bukkit.createInventory(holder, SELL_MENU_SIZE, "유저상점 판매");
+        Inventory inv = Bukkit.createInventory(holder, SELL_MENU_SIZE, "유저상점 판매 (가운데 슬롯)");
         holder.setInventory(inv);
 
         inv.setItem(SELL_CONFIRM_SLOT, createActionItem(Material.LIME_WOOL,
-                "확인", List.of("아이템 배치 후 클릭"), "confirm"));
+                "확인", List.of("가운데 슬롯(13번)에 아이템 배치 후 클릭"), "confirm"));
         inv.setItem(SELL_CANCEL_SLOT, createActionItem(Material.RED_WOOL,
                 "취소", List.of("닫고 취소"), "cancel"));
+        inv.setItem(SELL_GUIDE_SLOT, createInfoItem(Material.WRITABLE_BOOK, "판매 방법 안내", List.of(
+                "1) 가운데 슬롯(13번)에 판매할 아이템 배치",
+                "2) [확인] 버튼 클릭",
+                "3) /가격설정 <가격> 입력으로 등록 완료"
+        )));
+        inv.setItem(SELL_SLOT_HINT_SLOT, createInfoItem(Material.YELLOW_STAINED_GLASS_PANE,
+                "↑ 가운데 슬롯에 아이템을 올려주세요",
+                List.of("가운데 칸이 판매 아이템 등록 칸입니다.")));
 
         player.openInventory(inv);
+        player.sendMessage("[유저상점] 가운데 슬롯(13번)에 판매할 아이템을 넣고 [확인]을 눌러주세요.");
     }
 
     public boolean setPrice(Player player, long price) {

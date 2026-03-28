@@ -3,8 +3,8 @@ package org.kkaemok.reAbility.system;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
@@ -32,24 +32,17 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class ReAbilityScoreboard implements Listener {
-    private static final String OBJECTIVE_NAME = "re_ability_sb";
     private static final String HEADER_MM = "<bold><gradient:#FFE066:#FFB000>REABILITY</gradient></bold>";
+    private static final int LINE_COUNT = 6;
+    private static final String[] ENTRIES = new String[] {
+            "§0", "§1", "§2", "§3", "§4", "§5"
+    };
+
     private static final TextColor ABILITY_COLOR = TextColor.fromHexString("#FF8A00");
-    private static final TextColor GUILD_COLOR = TextColor.fromHexString("#4CC9F0");
     private static final TextColor COINS_COLOR = TextColor.fromHexString("#F9C74F");
     private static final TextColor KILLS_COLOR = TextColor.fromHexString("#FF4D6D");
     private static final TextColor DEATHS_COLOR = TextColor.fromHexString("#E63946");
     private static final TextColor PLAYTIME_COLOR = TextColor.fromHexString("#00D1B2");
-    private static final char COLOR_CHAR = (char) 0x00A7;
-    private static final int LINE_COUNT = 6;
-    private static final String[] ENTRIES = new String[] {
-            COLOR_CHAR + "0",
-            COLOR_CHAR + "1",
-            COLOR_CHAR + "2",
-            COLOR_CHAR + "3",
-            COLOR_CHAR + "4",
-            COLOR_CHAR + "5"
-    };
 
     private final ReAbility plugin;
     private final AbilityManager abilityManager;
@@ -67,7 +60,7 @@ public class ReAbilityScoreboard implements Listener {
 
     public void start() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            createBoard(player);
+            createOrRebuildBoard(player);
         }
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAll, 20L, 20L);
     }
@@ -77,44 +70,92 @@ public class ReAbilityScoreboard implements Listener {
             task.cancel();
             task = null;
         }
+        for (Board board : boards.values()) {
+            board.destroy();
+        }
         boards.clear();
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        createBoard(event.getPlayer());
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> createOrRebuildBoard(player));
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        boards.remove(event.getPlayer().getUniqueId());
-    }
-
-    private void createBoard(Player player) {
-        var manager = Objects.requireNonNull(Bukkit.getScoreboardManager(), "Scoreboard manager");
-
-        Scoreboard scoreboard = manager.getNewScoreboard();
-        Objective objective = scoreboard.registerNewObjective(OBJECTIVE_NAME, Criteria.DUMMY,
-                miniMessage.deserialize(HEADER_MM));
-        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        objective.numberFormat(NumberFormat.blank());
-
-        Board board = new Board(scoreboard, objective);
-        board.init();
-        boards.put(player.getUniqueId(), board);
-
-        player.setScoreboard(scoreboard);
-        updateBoard(player, board);
+        Board board = boards.remove(event.getPlayer().getUniqueId());
+        if (board != null) {
+            board.destroy();
+        }
     }
 
     private void updateAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            Board board = boards.get(player.getUniqueId());
-            if (board == null) {
-                createBoard(player);
-                continue;
-            }
+            Board board = ensureBoard(player);
             updateBoard(player, board);
+        }
+    }
+
+    private Board ensureBoard(Player player) {
+        Board board = boards.get(player.getUniqueId());
+        Scoreboard liveScoreboard = player.getScoreboard();
+
+        if (board == null || !board.isBoundTo(liveScoreboard) || !board.isAlive()) {
+            createOrRebuildBoard(player);
+            board = boards.get(player.getUniqueId());
+        }
+
+        return Objects.requireNonNull(board, "Board was not created for player " + player.getUniqueId());
+    }
+
+    private void createOrRebuildBoard(Player player) {
+        Board previous = boards.remove(player.getUniqueId());
+        if (previous != null) {
+            previous.destroy();
+        }
+
+        Scoreboard target = resolveTargetScoreboard(player);
+        Board board = Board.create(target, player.getUniqueId(), miniMessage.deserialize(HEADER_MM));
+
+        boards.put(player.getUniqueId(), board);
+        updateBoard(player, board);
+    }
+
+    private Scoreboard resolveTargetScoreboard(Player player) {
+        var manager = Objects.requireNonNull(Bukkit.getScoreboardManager(), "Scoreboard manager");
+        Scoreboard current = player.getScoreboard();
+        Scoreboard main = manager.getMainScoreboard();
+
+        if (current == main) {
+            Scoreboard isolated = manager.getNewScoreboard();
+            copyTeams(main, isolated);
+            player.setScoreboard(isolated);
+            return isolated;
+        }
+
+        return current;
+    }
+
+    private void copyTeams(Scoreboard source, Scoreboard target) {
+        for (Team sourceTeam : source.getTeams()) {
+            Team existing = target.getTeam(sourceTeam.getName());
+            if (existing != null) {
+                existing.unregister();
+            }
+
+            Team copied = target.registerNewTeam(sourceTeam.getName());
+            copied.displayName(sourceTeam.displayName());
+            copied.prefix(sourceTeam.prefix());
+            copied.suffix(sourceTeam.suffix());
+            copied.setAllowFriendlyFire(sourceTeam.allowFriendlyFire());
+            copied.setCanSeeFriendlyInvisibles(sourceTeam.canSeeFriendlyInvisibles());
+            for (Team.Option option : Team.Option.values()) {
+                copied.setOption(option, sourceTeam.getOption(option));
+            }
+            for (String entry : sourceTeam.getEntries()) {
+                copied.addEntry(entry);
+            }
         }
     }
 
@@ -126,30 +167,31 @@ public class ReAbilityScoreboard implements Listener {
         int deaths = player.getStatistic(Statistic.DEATHS);
         String playtime = formatPlaytime(player.getStatistic(Statistic.PLAY_ONE_MINUTE));
 
-        board.setLine(0, composeLine("⚡", ABILITY_COLOR, "Ability", Component.text(abilityName, ABILITY_COLOR)));
-        board.setLine(1, composeLine("🛡", GUILD_COLOR, "Guild", buildGuildValue(guild)));
-        board.setLine(2, composeLine("💰", COINS_COLOR, "Coins", Component.text(numberFormat.format(coins), COINS_COLOR)));
-        board.setLine(3, composeLine("🗡", KILLS_COLOR, "Kills", Component.text(String.valueOf(kills), KILLS_COLOR)));
-        board.setLine(4, composeLine("☠", DEATHS_COLOR, "Deaths", Component.text(String.valueOf(deaths), DEATHS_COLOR)));
-        board.setLine(5, composeLine("⏳", PLAYTIME_COLOR, "Playtime", Component.text(playtime, PLAYTIME_COLOR)));
+        board.setLine(0, composeLine("Ability", Component.text(abilityName, ABILITY_COLOR)));
+        board.setLine(1, composeLine("Guild", buildGuildValue(guild)));
+        board.setLine(2, composeLine("Coins", Component.text(numberFormat.format(coins), COINS_COLOR)));
+        board.setLine(3, composeLine("Kills", Component.text(String.valueOf(kills), KILLS_COLOR)));
+        board.setLine(4, composeLine("Deaths", Component.text(String.valueOf(deaths), DEATHS_COLOR)));
+        board.setLine(5, composeLine("Playtime", Component.text(playtime, PLAYTIME_COLOR)));
     }
 
     private String getAbilityName(Player player) {
         PlayerData data = abilityManager.getPlayerData(player.getUniqueId());
-        String key = data.getAbilityName();
-        if (key == null) return "None";
-        AbilityBase ability = abilityManager.getAbilityByName(key);
-        return ability != null ? ability.getDisplayName() : key;
+        if (data == null || data.getAbilityName() == null) {
+            return "None";
+        }
+
+        AbilityBase ability = abilityManager.getAbilityByName(data.getAbilityName());
+        return ability != null ? ability.getDisplayName() : data.getAbilityName();
     }
 
     private long getCoins(Player player) {
         PlayerData data = abilityManager.getPlayerData(player.getUniqueId());
-        return data.getCoins();
+        return data != null ? data.getCoins() : 0L;
     }
 
-    private Component composeLine(String emoji, TextColor accent, String label, Component value) {
-        return Component.text(emoji + " ", accent)
-                .append(Component.text(label + " ", NamedTextColor.WHITE))
+    private Component composeLine(String label, Component value) {
+        return Component.text(label + ": ", NamedTextColor.WHITE)
                 .append(value == null ? Component.empty() : value);
     }
 
@@ -188,7 +230,6 @@ public class ReAbilityScoreboard implements Listener {
             case 'c' -> NamedTextColor.RED;
             case 'd' -> NamedTextColor.LIGHT_PURPLE;
             case 'e' -> NamedTextColor.YELLOW;
-            case 'f' -> NamedTextColor.WHITE;
             default -> NamedTextColor.WHITE;
         };
     }
@@ -198,29 +239,67 @@ public class ReAbilityScoreboard implements Listener {
         long hours = seconds / 3600;
         long minutes = (seconds % 3600) / 60;
         long secs = seconds % 60;
+
         if (hours > 0) {
             return hours + "h " + minutes + "m";
         }
         return minutes + "m " + secs + "s";
     }
 
-    private static class Board {
+    private static final class Board {
         private final Scoreboard scoreboard;
         private final Objective objective;
         private final Team[] teams = new Team[LINE_COUNT];
+        private final String[] teamNames = new String[LINE_COUNT];
+        private final String objectiveName;
 
-        private Board(Scoreboard scoreboard, Objective objective) {
+        private Board(Scoreboard scoreboard, Objective objective, String objectiveName, String token) {
             this.scoreboard = scoreboard;
             this.objective = objective;
+            this.objectiveName = objectiveName;
+            for (int i = 0; i < LINE_COUNT; i++) {
+                teamNames[i] = "ra_l" + i + "_" + token;
+            }
+        }
+
+        private static Board create(Scoreboard scoreboard, UUID playerId, Component title) {
+            String token = playerId.toString().replace("-", "").substring(0, 8);
+            String objectiveName = "ra_sb_" + token;
+
+            Objective existingObjective = scoreboard.getObjective(objectiveName);
+            if (existingObjective != null) {
+                existingObjective.unregister();
+            }
+
+            Objective objective = scoreboard.registerNewObjective(objectiveName, Criteria.DUMMY, title);
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+            objective.numberFormat(NumberFormat.blank());
+
+            Board board = new Board(scoreboard, objective, objectiveName, token);
+            board.init();
+            return board;
         }
 
         private void init() {
             for (int i = 0; i < LINE_COUNT; i++) {
-                Team team = scoreboard.registerNewTeam("ra_line_" + i);
+                Team existingTeam = scoreboard.getTeam(teamNames[i]);
+                if (existingTeam != null) {
+                    existingTeam.unregister();
+                }
+
+                Team team = scoreboard.registerNewTeam(teamNames[i]);
                 team.addEntry(ENTRIES[i]);
                 objective.getScore(ENTRIES[i]).setScore(LINE_COUNT - i);
                 teams[i] = team;
             }
+        }
+
+        private boolean isBoundTo(Scoreboard current) {
+            return scoreboard == current;
+        }
+
+        private boolean isAlive() {
+            return scoreboard.getObjective(objectiveName) == objective;
         }
 
         private void setLine(int index, Component text) {
@@ -228,9 +307,22 @@ public class ReAbilityScoreboard implements Listener {
             Team team = teams[index];
             if (team == null) return;
 
-            Component safe = text == null ? Component.empty() : text;
-            team.prefix(safe);
+            team.prefix(text == null ? Component.empty() : text);
             team.suffix(Component.empty());
+        }
+
+        private void destroy() {
+            Objective liveObjective = scoreboard.getObjective(objectiveName);
+            if (liveObjective != null) {
+                liveObjective.unregister();
+            }
+
+            for (String teamName : teamNames) {
+                Team team = scoreboard.getTeam(teamName);
+                if (team != null) {
+                    team.unregister();
+                }
+            }
         }
     }
 }

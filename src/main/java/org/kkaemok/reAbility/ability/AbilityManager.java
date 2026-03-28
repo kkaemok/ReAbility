@@ -278,11 +278,25 @@ public class AbilityManager {
                 if (isHighGrade(current.getGrade())) {
                     applyHighGradeBuffs(player);
                 }
+                player.sendMessage(Component.text("남은 능력 시간: "
+                        + formatRemainingAbilityTime(data.getExpiryTime()), NamedTextColor.YELLOW));
                 long timeLeftHours = (data.getExpiryTime() - System.currentTimeMillis()) / (1000 * 60 * 60);
                 player.sendMessage(Component.text("현재 능력: " + current.getDisplayName()
                         + " (남은 시간: " + timeLeftHours + "시간)", NamedTextColor.YELLOW));
             }
         }
+    }
+
+    public String formatRemainingAbilityTime(long expiryTime) {
+        if (expiryTime == Long.MAX_VALUE) {
+            return "영구";
+        }
+
+        long remainMs = Math.max(0L, expiryTime - System.currentTimeMillis());
+        long totalMinutes = remainMs / 60000L;
+        long hours = totalMinutes / 60L;
+        long minutes = totalMinutes % 60L;
+        return hours + "시간 " + minutes + "분";
     }
 
     private long getDurationMillis(AbilityGrade grade) {

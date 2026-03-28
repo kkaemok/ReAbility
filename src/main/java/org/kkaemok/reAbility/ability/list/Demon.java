@@ -3,10 +3,12 @@ package org.kkaemok.reAbility.ability.list;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
 import org.bukkit.event.EventHandler;
@@ -25,11 +27,18 @@ import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 public class Demon extends AbilityBase {
+    private static final long HELL_RETURN_DELAY_TICKS = 2400L; // 2 minutes
+    private static final int NETHER_SAFE_RANGE = 3000;
+    private static final int NETHER_SAFE_ATTEMPTS = 96;
+    private static final int NETHER_ROOF_Y_LIMIT = 120;
+
     private final ReAbility plugin;
     private final GuildManager guildManager;
+    private final Random random = new Random();
     private final Map<UUID, Long> hellCooldown = new HashMap<>();
     private final Map<UUID, Long> staffCooldown = new HashMap<>();
     private final Map<UUID, Long> invincibleUntil = new HashMap<>();
@@ -50,7 +59,7 @@ public class Demon extends AbilityBase {
         return new String[]{
                 "지옥에 있을 시 힘 4, 저항 2, 화염저항 획득.",
                 "스킬 {지옥}: 네더라이트 주괴로 타격 시 자신/상대 지옥 이동",
-                "상대 구속 3, 나약 3 (3초) + 자신 30초 비행 (쿨타임 1시간)",
+                "2분 후 오버월드 원위치 복귀, 상대 구속 3, 나약 3 (3초) + 자신 30초 비행 (쿨타임 1시간)",
                 "스킬 {사탄의 지팡이}: 삼지창 명중 시 주변 3칸 번개 25회",
                 "3초 무적 + 이후 재생2/스피드3 30초 (쿨타임 1분)"
         };
@@ -110,15 +119,24 @@ public class Demon extends AbilityBase {
         }
 
         hellCooldown.put(player.getUniqueId(), now + 3600000);
-        Location base = player.getLocation();
+        Location base = player.getLocation().clone();
+        Location targetBase = target.getLocation().clone();
         SkillParticles.demonHell(base);
-        SkillParticles.demonHell(target.getLocation());
-        Location dest = new Location(nether, base.getX(), base.getY(), base.getZ());
-        dest.setY(nether.getHighestBlockYAt(dest) + 1);
+        SkillParticles.demonHell(targetBase);
+        Location dest = findSafeNetherLocation(nether, base);
+        if (dest == null) {
+            player.sendMessage(Component.text("네더 안전 위치를 찾지 못했습니다. 잠시 후 다시 시도해주세요.", NamedTextColor.RED));
+            return;
+        }
 
         player.teleport(dest);
         target.teleport(dest);
         SkillParticles.demonHell(dest);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            returnToOriginalLocation(player, base);
+            returnToOriginalLocation(target, targetBase);
+        }, HELL_RETURN_DELAY_TICKS);
 
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2, false, false));
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 2, false, false));
@@ -188,6 +206,48 @@ public class Demon extends AbilityBase {
             return;
         }
         event.setCancelled(true);
+    }
+
+    private void returnToOriginalLocation(Player player, Location origin) {
+        if (origin == null || origin.getWorld() == null) return;
+        if (!player.isOnline() || player.isDead()) return;
+        Chunk chunk = origin.getChunk();
+        if (!chunk.isLoaded()) {
+            chunk.load(true);
+        }
+        player.teleport(origin);
+    }
+
+    private Location findSafeNetherLocation(World nether, Location center) {
+        int baseX = center.getBlockX();
+        int baseZ = center.getBlockZ();
+
+        for (int i = 0; i < NETHER_SAFE_ATTEMPTS; i++) {
+            int x = baseX + random.nextInt((NETHER_SAFE_RANGE * 2) + 1) - NETHER_SAFE_RANGE;
+            int z = baseZ + random.nextInt((NETHER_SAFE_RANGE * 2) + 1) - NETHER_SAFE_RANGE;
+
+            Chunk chunk = nether.getChunkAt(x >> 4, z >> 4);
+            if (!chunk.isLoaded()) {
+                chunk.load(true);
+            }
+
+            Block ground = nether.getHighestBlockAt(x, z);
+            if (ground.getY() >= NETHER_ROOF_Y_LIMIT) continue;
+            if (isUnsafeNetherGround(ground.getType())) continue;
+
+            Location spawn = ground.getLocation().add(0.5, 1.1, 0.5);
+            if (!spawn.getBlock().isPassable()) continue;
+            if (!spawn.clone().add(0, 1, 0).getBlock().isPassable()) continue;
+            return spawn;
+        }
+        return null;
+    }
+
+    private boolean isUnsafeNetherGround(Material type) {
+        return switch (type) {
+            case LAVA, WATER, FIRE, SOUL_FIRE, MAGMA_BLOCK, CAMPFIRE, SOUL_CAMPFIRE, BEDROCK -> true;
+            default -> false;
+        };
     }
 
     private boolean isHasAbility(Player player) {

@@ -37,6 +37,12 @@ teleport-settings:
   rtp-cooldown-space-lord: 60
   tpa-request-timeout-seconds: 60
 
+sneak-skill:
+  block-look-guard:
+    enabled: true
+    max-distance: 6
+    message: "블럭을 보고 있습니다!"
+
 messages:
   prefix: "<gold>[ReAbility] <white>"
   reroll-announce: "<yellow>오늘은 <white>%ability% <yellow>능력이 지급되었습니다"
