@@ -67,7 +67,7 @@ public class MilkEffectListener implements Listener {
         if (ability == null) return;
 
         AbilityGrade grade = ability.getGrade();
-        if (grade == AbilityGrade.S || grade == AbilityGrade.SS) {
+        if (grade == AbilityGrade.S || grade == AbilityGrade.S_PLUS || grade == AbilityGrade.SS) {
             applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
             applyEffect(player, PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 0);
         }
@@ -81,6 +81,10 @@ public class MilkEffectListener implements Listener {
             case "JOKER", "SPACE_RULER" -> {
                 applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
                 applyEffect(player, PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 0);
+            }
+            case "ARCHANGEL" -> {
+                applyEffect(player, PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 1);
+                applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 1);
             }
             case "SHODDY_WIZARD" -> {
                 if (player.isSneaking()) {

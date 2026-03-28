@@ -14,7 +14,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
-import org.kkaemok.reAbility.utils.InventoryUtils;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,17 +47,22 @@ public class Fighter extends AbilityBase {
 
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
-            maxHealthAttr.setBaseValue(20.0);
+            double baseHealth = plugin.getAbilityConfigManager()
+                    .getDouble(getName(), "stats.max-health", 20.0);
+            maxHealthAttr.setBaseValue(baseHealth);
         }
     }
 
     @Override
     public void onDeactivate(Player player) {
         player.removePotionEffect(PotionEffectType.STRENGTH);
+        player.removePotionEffect(PotionEffectType.SPEED);
 
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
-            maxHealthAttr.setBaseValue(40.0);
+            double restoreHealth = plugin.getAbilityConfigManager()
+                    .getDouble(getName(), "stats.restore-max-health", 40.0);
+            maxHealthAttr.setBaseValue(restoreHealth);
         }
     }
 
@@ -64,7 +70,9 @@ public class Fighter extends AbilityBase {
     public void onAttack(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player attacker) || !isHasAbility(attacker)) return;
 
-        double healAmount = event.getFinalDamage() * 0.4;
+        double healRate = plugin.getAbilityConfigManager()
+                .getDouble(getName(), "stats.heal-percent", 0.4);
+        double healAmount = event.getFinalDamage() * healRate;
         AttributeInstance maxHealthAttr = attacker.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
             double newHealth = Math.min(maxHealthAttr.getValue(), attacker.getHealth() + healAmount);
@@ -75,7 +83,9 @@ public class Fighter extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND) return;
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "escape", Material.DIAMOND, 100);
+        if (item.getType() != cost.getItem()) return;
 
         long now = System.currentTimeMillis();
         if (now < skillCooldown.getOrDefault(player.getUniqueId(), 0L)) {
@@ -83,16 +93,23 @@ public class Fighter extends AbilityBase {
             return;
         }
 
-        if (!InventoryUtils.consume(player, Material.DIAMOND, 100)) return;
-        skillCooldown.put(player.getUniqueId(), now + 10000);
+        if (!cost.consumeFromInventory(player)) return;
+        long cooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.escape.cooldown-ms", 10000L);
+        int speedTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.escape.speed-ticks", 300);
+        int speedAmp = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.escape.speed-amplifier", 49);
+        skillCooldown.put(player.getUniqueId(), now + cooldownMs);
 
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
             player.setHealth(maxHealthAttr.getValue());
         }
 
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 300, 49));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedTicks, speedAmp));
         player.sendMessage(Component.text("[!] 스킬 {난 햇빛을 피해 도망치는 것이다.} 발동!", NamedTextColor.YELLOW));
+        SkillParticles.fighterEscape(player);
     }
 
     private boolean isHasAbility(Player player) {

@@ -14,6 +14,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +47,13 @@ public class Phoenix extends AbilityBase {
         player.sendMessage(Component.text("[!] 불사의 토템 20개를 획득했습니다.", NamedTextColor.GOLD));
     }
 
+    @Override
+    public void onDeactivate(Player player) {
+        invincibilityTime.remove(player.getUniqueId());
+        player.removePotionEffect(PotionEffectType.REGENERATION);
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+    }
+
     @EventHandler
     public void onFatalDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player player) || !isHasAbility(player)) return;
@@ -64,7 +73,9 @@ public class Phoenix extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND || item.getAmount() < 50) return;
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "death_evade", Material.DIAMOND, 50);
+        if (!cost.matchesHand(item)) return;
 
         long now = System.currentTimeMillis();
         if (now < skillCooldown.getOrDefault(player.getUniqueId(), 0L)) {
@@ -72,16 +83,25 @@ public class Phoenix extends AbilityBase {
             return;
         }
 
-        item.setAmount(item.getAmount() - 50);
-        skillCooldown.put(player.getUniqueId(), now + 90000); // 1분 30초
+        if (!cost.consumeFromHand(player)) return;
+        long cooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.death_evade.cooldown-ms", 90000L);
+        double healAmount = plugin.getAbilityConfigManager()
+                .getDouble(getName(), "skills.death_evade.heal-amount", 10.0);
+        int regenTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.death_evade.regen-ticks", 200);
+        int resistanceTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.death_evade.resistance-ticks", 1200);
+        skillCooldown.put(player.getUniqueId(), now + cooldownMs);
 
         double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-        player.setHealth(Math.min(maxHealth, player.getHealth() + 10.0));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 200, 1));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 1200, 1));
+        player.setHealth(Math.min(maxHealth, player.getHealth() + healAmount));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, regenTicks, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, resistanceTicks, 1));
 
         player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
         player.sendMessage(Component.text("[!] 스킬 {죽음 회피} 발동!", NamedTextColor.GOLD));
+        SkillParticles.phoenixEvade(player);
     }
 
     private boolean isHasAbility(Player player) {

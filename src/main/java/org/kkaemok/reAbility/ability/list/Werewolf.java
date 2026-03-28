@@ -17,11 +17,16 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
-import org.kkaemok.reAbility.utils.InventoryUtils;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.utils.SkillParticles;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class Werewolf extends AbilityBase {
     private final ReAbility plugin;
-    private boolean isNightActive = false;
+    private final Set<UUID> nightActive = new HashSet<>();
 
     public Werewolf(ReAbility plugin) {
         this.plugin = plugin;
@@ -50,10 +55,11 @@ public class Werewolf extends AbilityBase {
 
                     long time = player.getWorld().getTime();
                     boolean night = (time >= 13000 && time <= 23000);
+                    boolean active = nightActive.contains(player.getUniqueId());
 
-                    if (night && !isNightActive) {
+                    if (night && !active) {
                         applyNightBuffs(player);
-                    } else if (!night && isNightActive) {
+                    } else if (!night && active) {
                         removeNightBuffs(player);
                     }
                 }
@@ -62,7 +68,7 @@ public class Werewolf extends AbilityBase {
     }
 
     private void applyNightBuffs(Player player) {
-        isNightActive = true;
+        nightActive.add(player.getUniqueId());
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
 
@@ -70,11 +76,11 @@ public class Werewolf extends AbilityBase {
         if (maxHealth != null) maxHealth.setBaseValue(60.0);
 
         player.sendMessage(Component.text("[!] 밤이 되었습니다. 늑대인간의 힘이 깨어납니다.", NamedTextColor.RED));
-        player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 1.0f, 0.8f);
+        player.playSound(player.getLocation(), Sound.ENTITY_WOLF_GROWL, 1.0f, 0.8f);
     }
 
     private void removeNightBuffs(Player player) {
-        isNightActive = false;
+        nightActive.remove(player.getUniqueId());
         player.removePotionEffect(PotionEffectType.STRENGTH);
         player.removePotionEffect(PotionEffectType.RESISTANCE);
 
@@ -87,10 +93,24 @@ public class Werewolf extends AbilityBase {
         player.sendMessage(Component.text("[!] 낮이 되었습니다. 힘이 사라집니다.", NamedTextColor.GRAY));
     }
 
+    @Override
+    public void onDeactivate(Player player) {
+        if (!nightActive.contains(player.getUniqueId())) return;
+        nightActive.remove(player.getUniqueId());
+        player.removePotionEffect(PotionEffectType.STRENGTH);
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+
+        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(40.0);
+            if (player.getHealth() > 40.0) player.setHealth(40.0);
+        }
+    }
+
     @EventHandler
     public void onExplode(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player player) || !isHasAbility(player)) return;
-        if (!isNightActive) return;
+        if (!nightActive.contains(player.getUniqueId())) return;
 
         if (event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION ||
                 event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
@@ -101,18 +121,20 @@ public class Werewolf extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND) return;
-
-        if (!InventoryUtils.consume(player, Material.DIAMOND, 100)) return;
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "my_time", Material.DIAMOND, 100);
+        if (item.getType() != cost.getItem()) return;
+        if (!cost.consumeFromInventory(player)) return;
         player.getWorld().setTime(13000);
 
         Bukkit.broadcast(Component.text("==========", NamedTextColor.DARK_RED));
         Bukkit.broadcast(Component.text("늑대인간 " + player.getName() + "이 {나의 시간}을 사용하여 밤을 불러옵니다!",
                 NamedTextColor.RED));
         Bukkit.broadcast(Component.text("==========", NamedTextColor.DARK_RED));
+        SkillParticles.werewolfNight(player);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            online.playSound(online.getLocation(), Sound.ENTITY_WOLF_HOWL, 1.0f, 0.5f);
+            online.playSound(online.getLocation(), Sound.ENTITY_WOLF_GROWL, 1.0f, 0.5f);
         }
     }
 

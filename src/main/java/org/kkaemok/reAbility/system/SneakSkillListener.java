@@ -47,7 +47,6 @@ public class SneakSkillListener implements Listener {
             return false;
         }
 
-        if (player.getInventory().getItemInMainHand().getType() != Material.EMERALD) return false;
         if (!InventoryUtils.consume(player, Material.EMERALD, 1)) return false;
 
         player.removePotionEffect(PotionEffectType.WEAKNESS);

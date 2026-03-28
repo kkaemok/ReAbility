@@ -16,6 +16,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -58,33 +60,47 @@ public class Gunslinger extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        if (item.getType() == Material.DIAMOND && item.getAmount() >= 50) {
+        SkillCost barrageCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "barrage", Material.DIAMOND, 50);
+        if (barrageCost.matchesHand(item)) {
             if (now < ultimateCooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("총알 난사 쿨타임입니다.", NamedTextColor.RED));
                 return;
             }
-            item.setAmount(item.getAmount() - 50);
-            ultimateCooldown.put(player.getUniqueId(), now + 60000);
+            if (!barrageCost.consumeFromHand(player)) return;
+            long cooldownMs = plugin.getAbilityConfigManager()
+                    .getLong(getName(), "skills.barrage.cooldown-ms", 60000L);
+            int delayTicks = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.barrage.delay-ticks", 60);
+            int shots = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.barrage.shots", 15);
+            int intervalTicks = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.barrage.interval-ticks", 5);
+            ultimateCooldown.put(player.getUniqueId(), now + cooldownMs);
 
             player.sendMessage(Component.text("[!] 3초 후 총알 난사를 시작합니다.", NamedTextColor.RED));
+            SkillParticles.gunslingerBarrageCharge(player);
             new BukkitRunnable() {
                 int count = 0;
                 @Override
                 public void run() {
-                    if (count >= 15) { this.cancel(); return; }
+                    if (count >= shots) { this.cancel(); return; }
                     shootBullet(player);
                     count++;
                 }
-            }.runTaskTimer(plugin, 60L, 5L);
+            }.runTaskTimer(plugin, delayTicks, intervalTicks);
             return;
         }
 
         if (now < basicCooldown.getOrDefault(player.getUniqueId(), 0L)) return;
         shootBullet(player);
-        basicCooldown.put(player.getUniqueId(), now + 5000);
+        long basicCooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.basic.cooldown-ms", 5000L);
+        basicCooldown.put(player.getUniqueId(), now + basicCooldownMs);
     }
 
     private void shootBullet(Player player) {
+        SkillParticles.gunslingerMuzzle(player);
         Fireball ball = player.launchProjectile(Fireball.class);
         ball.setYield(0);
         ball.setIsIncendiary(true);
@@ -96,7 +112,9 @@ public class Gunslinger extends AbilityBase {
     public void onBulletHit(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Fireball ball) {
             if (ball.hasMetadata(BULLET_KEY)) {
-                event.setDamage(20.0);
+                double damage = plugin.getAbilityConfigManager()
+                        .getDouble(getName(), "skills.basic.damage", 20.0);
+                event.setDamage(damage);
             }
         }
     }

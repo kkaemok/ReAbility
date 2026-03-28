@@ -44,21 +44,27 @@ public class Zombie extends AbilityBase {
 
     @EventHandler
     public void onEat(PlayerItemConsumeEvent event) {
-        if (event.getItem().getType() == Material.GOLDEN_APPLE) {
-            Player p = event.getPlayer();
-            org.bukkit.Bukkit.getScheduler().runTaskLater(
-                    org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
-                        p.removePotionEffect(PotionEffectType.WEAKNESS);
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
+        if (event.getItem().getType() != Material.GOLDEN_APPLE) return;
+        Player p = event.getPlayer();
+        if (!isHasAbility(p)) return;
 
-                        org.bukkit.Bukkit.getScheduler().runTaskLater(
-                                org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
-                                    if (p.isOnline()) {
-                                        p.addPotionEffect(new PotionEffect(
-                                                PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
-                                    }
-                                }, 600L);
-                    }, 1L);
-        }
+        org.bukkit.Bukkit.getScheduler().runTaskLater(
+                org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
+                    p.removePotionEffect(PotionEffectType.WEAKNESS);
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
+
+                    org.bukkit.Bukkit.getScheduler().runTaskLater(
+                            org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()), () -> {
+                                if (p.isOnline()) {
+                                    p.addPotionEffect(new PotionEffect(
+                                            PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
+                                }
+                            }, 600L);
+                }, 1L);
+    }
+
+    private boolean isHasAbility(Player player) {
+        return getName().equals(org.kkaemok.reAbility.ReAbility.getPlugin(org.kkaemok.reAbility.ReAbility.class)
+                .getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName());
     }
 }

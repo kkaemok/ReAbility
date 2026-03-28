@@ -1,94 +1,122 @@
-# ReAbility 플러그인 설정
+# ReAbility configuration
 
-# 월드 기본 설정
 world-settings:
-  # 플레이어 기본 체력 (2줄 = 40.0)
   default-max-health: 40.0
-  # 도끼 데미지 감소 (검보다 2 낮게)
   axe-damage-reduction: 2.0
-  # 월드 보더 범위
   border:
     min-x: -30000
     min-z: -30000
     max-x: 30000
     max-z: 30000
 
-# 채굴 제한 (기본값)
 mining-limits:
   diamond:
     amount: 100
-    miner-bonus: 700
-    reset-interval-ticks: 72000 # 1시간 (20 * 3600)
+    miner-bonus: 600
+    reset-interval-ticks: 72000
   ancient-debris:
     amount: 2
-    miner-bonus: 7
-    reset-interval-ticks: 216000 # 3시간 (20 * 10800)
+    miner-bonus: 5
+    reset-interval-ticks: 216000
 
-# 능력 설정
 ability-settings:
-  # 자동 초기화 주기 (시간)
   auto-reroll-hours: 24
-  # 등급별 기본 지속시간 (밀리초)
   durations:
     D: 86400000
     C: 86400000
     B: 86400000
     A: 86400000
     S: 86400000
+    S_PLUS: 86400000
     SS: 86400000
 
-# 텔레포트 설정
 teleport-settings:
-  tpa-cooldown-default: 180 # 3분
-  tpa-cooldown-homelover: 60 # 1분
+  tpa-cooldown-default: 180
+  tpa-cooldown-homelover: 60
   rtp-cooldown-default: 600
-  rtp-cooldown-space-lord: 60 # 1분
+  rtp-cooldown-space-lord: 60
+  tpa-request-timeout-seconds: 60
 
-# 스킬 비용
-skill-costs:
-  phoenix_evade:
-    item: "DIAMOND"
-    amount: 50
-  gunslinger_burst:
-    item: "DIAMOND"
-    amount: 50
-  fighter_sunlight:
-    item: "DIAMOND"
-    amount: 100
-  wolfman_time:
-    item: "DIAMOND"
-    amount: 100
-  ghost_skill:
-    item: "DIAMOND"
-    amount: 50
-  miner_alchemy:
-    item: "IRON_INGOT"
-    amount: 50
-  joker_spy:
-    item: "EMERALD"
-    amount: 50
-  joker_illusion:
-    item: "NETHERITE_SCRAP"
-    amount: 2
-  joker_death_trick:
-    item: "DIAMOND"
-    amount: 100
-  space_lord_tp:
-    item: "DIAMOND"
-    amount: 100
-    extra_item: "NETHERITE_INGOT"
-    extra_amount: 1
-  space_lord_cut:
-    item: "DIAMOND"
-    amount: 50
-  chronos_roar:
-    item: "NETHERITE_INGOT"
-    amount: 2
-  chronos_cut:
-    item: "NETHERITE_INGOT"
-    amount: 3
-
-# 메시지
 messages:
   prefix: "<gold>[ReAbility] <white>"
-  reroll-announce: "<yellow>오늘은 <white>%ability% <yellow>능력을 획득하였습니다!"
+  reroll-announce: "<yellow>오늘은 <white>%ability% <yellow>능력이 지급되었습니다"
+
+# Shop settings
+shop:
+  menu:
+    title: "<bold><gradient:#FFE066:#FFB000>상점</gradient></bold>"
+    category-size: 27
+    item-size: 54
+    back-item:
+      material: ARROW
+      slot: 49
+      name: "<yellow>뒤로가기"
+      lore:
+        - "<gray>카테고리 메뉴로 돌아가기"
+  categories:
+    food:
+      enabled: true
+      slot: 11
+      icon: BREAD
+      display-name: "<#F9C74F>음식"
+      title: "<bold><#F9C74F>음식 상점</#F9C74F></bold>"
+      lore:
+        - "<gray>기본 식량"
+      items:
+        bread_pack:
+          enabled: true
+          slot: 10
+          material: BREAD
+          amount: 16
+          price: 40
+          display-name: "<white>빵 x16"
+          lore:
+            - "<gray>초반용 식량"
+        steak_pack:
+          enabled: true
+          slot: 12
+          material: COOKED_BEEF
+          amount: 16
+          price: 120
+          display-name: "<white>스테이크 x16"
+          lore:
+            - "<gray>포만감이 높은 식량"
+        golden_apple:
+          enabled: true
+          slot: 14
+          material: GOLDEN_APPLE
+          amount: 2
+          price: 180
+          display-name: "<white>황금사과 x2"
+          lore:
+            - "<gray>긴급 전투 회복용"
+    blocks:
+      enabled: true
+      slot: 15
+      icon: STONE
+      display-name: "<#90BE6D>블럭"
+      title: "<bold><#90BE6D>블럭 상점</#90BE6D></bold>"
+      lore:
+        - "<gray>건축 재료"
+      items:
+        stone_stack:
+          enabled: true
+          slot: 10
+          material: STONE
+          amount: 64
+          price: 70
+          display-name: "<white>돌 x64"
+        oak_log_stack:
+          enabled: true
+          slot: 12
+          material: OAK_LOG
+          amount: 64
+          price: 85
+          display-name: "<white>참나무 원목 x64"
+        glass_stack:
+          enabled: true
+          slot: 14
+          material: GLASS
+          amount: 64
+          price: 100
+          display-name: "<white>유리 x64"

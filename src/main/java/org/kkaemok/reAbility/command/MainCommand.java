@@ -13,6 +13,7 @@ import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.ability.RerollTicket;
 import org.kkaemok.reAbility.data.PlayerData;
 import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.integration.NicknamesBridge;
 import org.kkaemok.reAbility.item.TicketItemManager;
 import org.jetbrains.annotations.NotNull;
 
@@ -70,6 +71,35 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (args[0].equalsIgnoreCase("부여")) {
+            if (!player.isOp()) {
+                player.sendMessage("권한이 없습니다.");
+                return true;
+            }
+            if (args.length < 3) {
+                player.sendMessage("사용법: /능력 부여 <플레이어> <능력>");
+                return true;
+            }
+            Player target = NicknamesBridge.findOnlinePlayer(args[1]);
+            if (target == null) {
+                player.sendMessage("해당 플레이어가 온라인이 아닙니다.");
+                return true;
+            }
+            String abilityName = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+            AbilityBase ability = findAbilityByName(abilityName);
+            if (ability == null) {
+                player.sendMessage("해당 능력을 찾을 수 없습니다.");
+                return true;
+            }
+
+            abilityManager.assignAbility(target, ability);
+            player.sendMessage("[!] " + target.getName() + "에게 " + ability.getDisplayName() + " 능력을 부여했습니다.");
+            if (!target.equals(player)) {
+                target.sendMessage("[!] " + player.getName() + "님이 " + ability.getDisplayName() + " 능력을 부여했습니다.");
+            }
+            return true;
+        }
+
         if (args[0].equalsIgnoreCase("주인")) {
             handleOwnerCommand(player, args);
             return true;
@@ -121,6 +151,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("사용법: /능력 주인 <플레이어|해제>");
         if (player.isOp()) {
             player.sendMessage("사용법: /능력 뽑기 <B1/B2/C/A/S>");
+            player.sendMessage("사용법: /능력 부여 <플레이어> <능력>");
             player.sendMessage("사용법: /능력 리로드");
             player.sendMessage("사용법: /능력 리스트");
         }
@@ -212,7 +243,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        Player target = Bukkit.getPlayerExact(args[1]);
+        Player target = NicknamesBridge.findOnlinePlayer(args[1]);
         if (target == null) {
             player.sendMessage("해당 플레이어가 온라인이 아닙니다.");
             return;
@@ -229,12 +260,25 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         if (!(sender instanceof Player)) return List.of();
 
         if (args.length == 1) {
-            return partialMatches(args[0], List.of("설명", "뽑기", "리로드", "리스트", "주인"));
+            return partialMatches(args[0], List.of("설명", "뽑기", "부여", "리로드", "리스트", "주인"));
         }
 
         String sub = args[0].toLowerCase(Locale.ROOT);
         if (sub.equals("설명")) {
-            return suggestAbilityNames(args);
+            return suggestAbilityNames(args, 1);
+        }
+
+        if (sub.equals("부여")) {
+            if (args.length == 2) {
+                List<String> names = new ArrayList<>();
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    names.add(p.getName());
+                }
+                return partialMatches(args[1], names);
+            }
+            if (args.length >= 3) {
+                return suggestAbilityNames(args, 2);
+            }
         }
 
         if (sub.equals("뽑기") && args.length == 2) {
@@ -253,12 +297,13 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    private List<String> suggestAbilityNames(String[] args) {
+    private List<String> suggestAbilityNames(String[] args, int startIndex) {
+        if (args.length <= startIndex) return List.of();
         Collection<AbilityBase> abilities = abilityManager.getAllAbilities();
         String current = args[args.length - 1];
         Set<String> results = new LinkedHashSet<>();
 
-        if (args.length == 2) {
+        if (args.length == startIndex + 1) {
             for (AbilityBase ability : abilities) {
                 String key = ability.getName();
                 if (StringUtil.startsWithIgnoreCase(key, current)) results.add(key);
@@ -275,7 +320,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return new ArrayList<>(results);
         }
 
-        String[] typed = Arrays.copyOfRange(args, 1, args.length - 1);
+        String[] typed = Arrays.copyOfRange(args, startIndex, args.length - 1);
         for (AbilityBase ability : abilities) {
             String[] tokens = ability.getDisplayName().split("\\s+");
             if (tokens.length <= typed.length) continue;

@@ -13,8 +13,10 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
 import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 public class ShoddyWizard extends AbilityBase {
     private final ReAbility plugin;
@@ -59,16 +61,25 @@ public class ShoddyWizard extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND || item.getAmount() < 5) return;
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "magic_circle", Material.DIAMOND, 5);
+        if (!cost.matchesHand(item)) return;
 
-        item.setAmount(item.getAmount() - 5);
-        for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
+        if (!cost.consumeFromHand(player)) return;
+        int range = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.magic_circle.range", 5);
+        int debuffTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.magic_circle.debuff-ticks", 200);
+        int hungerAmp = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.magic_circle.hunger-amplifier", 4);
+        for (Entity entity : player.getNearbyEntities(range, range, range)) {
             if (entity instanceof Player target && !target.equals(player) && !isSameGuild(player, target)) {
-                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 200, 0, false, false));
-                target.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 200, 4, false, false));
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, debuffTicks, 0, false, false));
+                target.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, debuffTicks, hungerAmp, false, false));
             }
         }
         player.sendMessage(Component.text("[!] 스킬 {허술한 마법진} 발동!", NamedTextColor.GRAY));
+        SkillParticles.shoddyCircle(player);
     }
 
     private void updateSneakEffects(Player player, boolean sneaking) {

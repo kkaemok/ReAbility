@@ -16,7 +16,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
 import org.kkaemok.reAbility.data.PlayerData;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.Random;
 
@@ -94,9 +96,14 @@ public class Miner extends AbilityBase {
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
 
-        if (item.getType() == Material.IRON_INGOT && item.getAmount() >= 50) {
-            item.setAmount(item.getAmount() - 50);
-            player.getInventory().addItem(new ItemStack(Material.DIAMOND, 50));
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "alchemy", Material.IRON_INGOT, 50);
+        if (cost.matchesHand(item)) {
+            if (!cost.consumeFromHand(player)) return;
+            int reward = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.alchemy.reward-amount", 50);
+            player.getInventory().addItem(new ItemStack(Material.DIAMOND, reward));
+            SkillParticles.minerAlchemy(player);
 
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 

@@ -7,14 +7,24 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.guild.GuildData;
+import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,12 +32,14 @@ import java.util.UUID;
 
 public class Beauty extends AbilityBase {
     private final ReAbility plugin;
-    private final Map<UUID, Long> discountTime = new HashMap<>();
+    private final GuildManager guildManager;
     private final Map<UUID, Long> scentCooldown = new HashMap<>();
+    private final Map<UUID, BukkitTask> charmTasks = new HashMap<>();
     private BukkitRunnable passiveTask;
 
     public Beauty(ReAbility plugin) {
         this.plugin = plugin;
+        this.guildManager = plugin.getGuildManager();
     }
 
     @Override public String getName() { return "BEAUTY"; }
@@ -37,11 +49,11 @@ public class Beauty extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "길드원에게 재생 1, 저항 1 효과 공유.",
-                "상대팀이 자신을 바라보면 움직일 수 없음.",
-                "스킬 {미인계}: 다이아 30개 소모, 상점 가격 1시간 감소",
-                "스킬 {기분 좋은 냄새}: 다이아 60개 소모,",
-                "주변 적에게 나약함 2, 구속 2, 멀미 (1분, 쿨타임 5분)"
+                "길드원에게 재생 1, 저항 1 부여 및 자신의 버프 공유.",
+                "상대팀이 자신을 바라보면 구속 10 효과.",
+                "스킬 {미인계}: 네더라이트 주괴로 타격 시 13초간 나약함 200 + 강제 추종",
+                "(엔더펄로 해제 가능)",
+                "스킬 {기분좋은 냄새}: 다이아 60개 우클릭, 15칸 적 디버프 1분 (쿨타임 5분)"
         };
     }
 
@@ -53,7 +65,8 @@ public class Beauty extends AbilityBase {
     @Override
     public void onDeactivate(Player player) {
         if (passiveTask != null) passiveTask.cancel();
-        discountTime.remove(player.getUniqueId());
+        charmTasks.values().forEach(BukkitTask::cancel);
+        charmTasks.clear();
     }
 
     private void startPassiveTask(Player beauty) {
@@ -69,62 +82,134 @@ public class Beauty extends AbilityBase {
                         .filter(e -> e instanceof Player)
                         .map(e -> (Player) e)
                         .filter(p -> isSameGuild(beauty, p))
-                        .forEach(this::applyBuff);
-                applyBuff(beauty);
+                        .forEach(p -> applyBuffs(beauty, p));
+                applyBuffs(beauty, beauty);
 
                 for (Player enemy : Bukkit.getOnlinePlayers()) {
-                    if (enemy.getWorld().equals(beauty.getWorld()) && !isSameGuild(beauty, enemy)) {
-                        if (enemy.getLocation().distance(beauty.getLocation()) < 50 && isLookingAt(enemy, beauty)) {
-                            enemy.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 10, 255, false, false));
-                            enemy.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 10, 200, false, false));
-                            enemy.sendActionBar(Component.text("미녀를 바라보아 움직일 수 없습니다."));
-                        }
+                    if (!enemy.getWorld().equals(beauty.getWorld())) continue;
+                    if (isSameGuild(beauty, enemy)) continue;
+                    if (enemy.getLocation().distance(beauty.getLocation()) > 50) continue;
+                    if (isLookingAt(enemy, beauty)) {
+                        enemy.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 9, false, false));
                     }
                 }
-            }
-            private void applyBuff(Player p) {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 0, false, false));
-                p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 40, 0, false, false));
             }
         };
         passiveTask.runTaskTimer(plugin, 0L, 5L);
     }
 
-    @Override
-    public void onSneakSkill(Player player) {
-        ItemStack item = player.getInventory().getItemInMainHand();
-        long now = System.currentTimeMillis();
+    private void applyBuffs(Player beauty, Player target) {
+        target.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 0, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 40, 0, false, false));
 
-        if (item.getType() == Material.DIAMOND && item.getAmount() >= 30) {
-            item.setAmount(item.getAmount() - 30);
-            discountTime.put(player.getUniqueId(), now + 3600000);
-            player.sendMessage(Component.text("[!] 스킬 {미인계} 발동! 1시간 동안 상점 가격이 낮아집니다.",
-                    NamedTextColor.LIGHT_PURPLE));
-            return;
-        }
-
-        if (item.getType() == Material.DIAMOND && item.getAmount() >= 60) {
-            if (now < scentCooldown.getOrDefault(player.getUniqueId(), 0L)) {
-                player.sendMessage(Component.text("쿨타임 중입니다.", NamedTextColor.RED));
-                return;
-            }
-
-            item.setAmount(item.getAmount() - 60);
-            scentCooldown.put(player.getUniqueId(), now + 300000);
-
-            for (Entity entity : player.getNearbyEntities(20, 20, 20)) {
-                if (entity instanceof Player target && !isSameGuild(player, target)) {
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 1200, 1));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 1200, 1));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 1200, 0));
-                }
-            }
-            broadcastSkill(player, "{기분 좋은 냄새}");
+        for (PotionEffect effect : beauty.getActivePotionEffects()) {
+            if (!isBeneficial(effect.getType())) continue;
+            target.addPotionEffect(new PotionEffect(effect.getType(), 40, effect.getAmplifier(), false, false));
         }
     }
 
-    public boolean hasDiscount(Player player) {
-        return System.currentTimeMillis() < discountTime.getOrDefault(player.getUniqueId(), 0L);
+    @EventHandler
+    public void onHit(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player attacker)) return;
+        if (!isHasAbility(attacker)) return;
+        if (!(event.getEntity() instanceof Player target)) return;
+        if (isSameGuild(attacker, target)) return;
+
+        if (attacker.getInventory().getItemInMainHand().getType() != Material.NETHERITE_INGOT) return;
+
+        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 260, 199, false, false));
+        startCharm(attacker, target);
+        SkillParticles.beautyCharm(target);
+    }
+
+    @EventHandler
+    public void onRightClick(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (!isHasAbility(player)) return;
+        if (!event.getAction().isRightClick()) return;
+
+        ItemStack item = player.getInventory().getItemInMainHand();
+        SkillCost scentCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "scent", Material.DIAMOND, 60);
+        if (item.getType() != scentCost.getItem()) return;
+
+        long now = System.currentTimeMillis();
+        if (now < scentCooldown.getOrDefault(player.getUniqueId(), 0L)) {
+            player.sendMessage(Component.text("쿨타임입니다.", NamedTextColor.RED));
+            return;
+        }
+        if (!scentCost.consumeFromInventory(player)) return;
+
+        long cooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.scent.cooldown-ms", 300000L);
+        int range = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.scent.range", 15);
+        int debuffTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.scent.debuff-ticks", 1200);
+        int weaknessAmp = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.scent.weakness-amplifier", 2);
+        int slownessAmp = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.scent.slowness-amplifier", 1);
+        scentCooldown.put(player.getUniqueId(), now + cooldownMs);
+        for (Entity entity : player.getNearbyEntities(range, range, range)) {
+            if (entity instanceof Player target && !isSameGuild(player, target)) {
+                target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, debuffTicks, weaknessAmp, false, false));
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, debuffTicks, slownessAmp, false, false));
+                target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, debuffTicks, 0, false, false));
+            }
+        }
+        SkillParticles.beautyScent(player);
+        broadcastSkill(player, "{기분좋은 냄새}");
+    }
+
+    @EventHandler
+    public void onTeleport(PlayerTeleportEvent event) {
+        if (event.getCause() != PlayerTeleportEvent.TeleportCause.ENDER_PEARL) return;
+        Player player = event.getPlayer();
+        if (charmTasks.containsKey(player.getUniqueId())) {
+            cancelCharm(player.getUniqueId());
+        }
+    }
+
+    private void startCharm(Player beauty, Player target) {
+        cancelCharm(target.getUniqueId());
+
+        BukkitRunnable runnable = new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!beauty.isOnline() || !target.isOnline()) {
+                    cancelCharm(target.getUniqueId());
+                    return;
+                }
+                if (!beauty.getWorld().equals(target.getWorld())) {
+                    cancelCharm(target.getUniqueId());
+                    return;
+                }
+                if (ticks >= 260) {
+                    cancelCharm(target.getUniqueId());
+                    return;
+                }
+
+                Vector dir = beauty.getLocation().toVector().subtract(target.getLocation().toVector());
+                if (dir.length() > 1.5) {
+                    target.setVelocity(dir.normalize().multiply(0.35));
+                }
+                ticks += 5;
+            }
+        };
+        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 5L);
+        charmTasks.put(target.getUniqueId(), task);
+    }
+
+    private void cancelCharm(UUID targetId) {
+        BukkitTask task = charmTasks.remove(targetId);
+        if (task != null) task.cancel();
+        Player target = Bukkit.getPlayer(targetId);
+        if (target != null) {
+            target.removePotionEffect(PotionEffectType.WEAKNESS);
+        }
     }
 
     private boolean isLookingAt(Player observer, Player target) {
@@ -135,11 +220,21 @@ public class Beauty extends AbilityBase {
 
     private boolean isSameGuild(Player p1, Player p2) {
         if (p1.equals(p2)) return true;
-        return false;
+        GuildData g1 = guildManager.getGuildByMember(p1.getUniqueId());
+        GuildData g2 = guildManager.getGuildByMember(p2.getUniqueId());
+        return g1 != null && g2 != null && g1.name.equalsIgnoreCase(g2.name);
     }
 
     private void broadcastSkill(Player player, String skillName) {
         Bukkit.broadcast(Component.text("[S] 미녀 " + player.getName() + "이(가) " + skillName + "을 사용했습니다!",
                 NamedTextColor.LIGHT_PURPLE));
+    }
+
+    private boolean isBeneficial(PotionEffectType type) {
+        return type.getEffectCategory() != PotionEffectType.Category.HARMFUL;
+    }
+
+    private boolean isHasAbility(Player player) {
+        return getName().equals(plugin.getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName());
     }
 }

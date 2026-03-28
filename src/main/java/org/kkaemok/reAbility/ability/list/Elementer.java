@@ -13,8 +13,10 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
 import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -64,6 +66,7 @@ public class Elementer extends AbilityBase {
         player.removePotionEffect(PotionEffectType.WATER_BREATHING);
         player.removePotionEffect(PotionEffectType.FIRE_RESISTANCE);
         player.removePotionEffect(PotionEffectType.RESISTANCE);
+        player.removePotionEffect(PotionEffectType.STRENGTH);
 
         AttributeInstance knockback = player.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
         if (knockback != null) {
@@ -77,7 +80,9 @@ public class Elementer extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        if (item.getType() == Material.DIAMOND && item.getAmount() >= 50) {
+        SkillCost waterCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "water", Material.DIAMOND, 50);
+        if (waterCost.matchesHand(item)) {
             if (now < waterCooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("물의 힘 쿨타임입니다.", NamedTextColor.RED));
                 return;
@@ -87,26 +92,51 @@ public class Elementer extends AbilityBase {
                 return;
             }
 
-            item.setAmount(item.getAmount() - 50);
-            waterCooldown.put(player.getUniqueId(), now + 180000);
+            if (!waterCost.consumeFromHand(player)) return;
+            long cooldownMs = plugin.getAbilityConfigManager()
+                    .getLong(getName(), "skills.water.cooldown-ms", 180000L);
+            int durationTicks = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.water.duration-ticks", 1200);
+            int strengthAmp = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.water.strength-amplifier", 2);
+            int resistanceAmp = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.water.resistance-amplifier", 2);
+            waterCooldown.put(player.getUniqueId(), now + cooldownMs);
 
-            player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 1200, 2, false, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 1200, 2, false, false));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, strengthAmp, false, false));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, durationTicks, resistanceAmp, false, false));
+            SkillParticles.elementerWater(player);
             player.sendMessage(Component.text("[!] 스킬 {물의 힘} 발동!", NamedTextColor.AQUA));
             return;
         }
 
-        if (item.getType() == Material.REDSTONE && item.getAmount() >= 50) {
-            item.setAmount(item.getAmount() - 50);
-            for (Entity entity : player.getNearbyEntities(8, 8, 8)) {
+        SkillCost fireCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "fire", Material.REDSTONE, 50);
+        if (fireCost.matchesHand(item)) {
+            if (!fireCost.consumeFromHand(player)) return;
+            int range = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.fire.range", 8);
+            double damage = plugin.getAbilityConfigManager()
+                    .getDouble(getName(), "skills.fire.damage", 30.0);
+            int fireTicks = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.fire.fire-ticks", 200);
+            int debuffTicks = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.fire.debuff-ticks", 200);
+            int slowAmp = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.fire.slow-amplifier", 2);
+            int weaknessAmp = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.fire.weakness-amplifier", 2);
+
+            for (Entity entity : player.getNearbyEntities(range, range, range)) {
                 if (entity instanceof Player target && !target.equals(player) && !isSameGuild(player, target)) {
-                    target.damage(30.0, player);
-                    target.setFireTicks(200);
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 200, 2, false, false));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 200, 0, false, false));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 200, 2, false, false));
+                    target.damage(damage, player);
+                    target.setFireTicks(fireTicks);
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, debuffTicks, slowAmp, false, false));
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, debuffTicks, 0, false, false));
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, debuffTicks, weaknessAmp, false, false));
                 }
             }
+            SkillParticles.elementerFire(player);
             player.sendMessage(Component.text("[!] 스킬 {불의 힘} 발동!", NamedTextColor.RED));
         }
     }

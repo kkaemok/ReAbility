@@ -3,6 +3,7 @@ package org.kkaemok.reAbility.ability;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
@@ -22,13 +23,17 @@ import java.util.logging.Level;
 
 public class AbilityManager {
 
+    private static final long SAVE_DEBOUNCE_TICKS = 20L;
+
     private final ReAbility plugin;
     private final Map<UUID, PlayerData> playerDataMap = new HashMap<>();
     private final Map<String, AbilityBase> registeredAbilities = new HashMap<>();
     private final Random random = new Random();
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private File playerFile;
     private FileConfiguration playerConfig;
+    private boolean saveScheduled;
 
     public AbilityManager(ReAbility plugin) {
         this.plugin = plugin;
@@ -63,7 +68,11 @@ public class AbilityManager {
                 PlayerData data = new PlayerData(uuid);
 
                 String path = "players." + uuidStr + ".";
-                data.setAbilityName(playerConfig.getString(path + "ability"));
+                String savedAbility = playerConfig.getString(path + "ability");
+                if ("SPLUS_UNKNOWN".equals(savedAbility)) {
+                    savedAbility = "NECROMANCER";
+                }
+                data.setAbilityName(savedAbility);
                 data.setExpiryTime(playerConfig.getLong(path + "expiry"));
 
                 data.setMinedDiamond(playerConfig.getInt(path + "mined-diamond", 0));
@@ -79,6 +88,31 @@ public class AbilityManager {
                         data.setDogOwnerUuid(null);
                     }
                 }
+                data.setDomainHome(playerConfig.getString(path + "domain-home"));
+                int legacySoulCount = playerConfig.getInt(path + "souls", 0);
+                data.setSoulCount(legacySoulCount);
+                List<Long> soulExpiries = playerConfig.getLongList(path + "soul-expiries");
+                if (soulExpiries.isEmpty() && legacySoulCount > 0) {
+                    long migratedExpiry = System.currentTimeMillis() + (60L * 60L * 1000L);
+                    for (int i = 0; i < legacySoulCount; i++) {
+                        soulExpiries.add(migratedExpiry);
+                    }
+                }
+                data.setSoulExpiries(soulExpiries);
+                ConfigurationSection investmentSection = playerConfig.getConfigurationSection(path + "soul-investments");
+                if (investmentSection != null) {
+                    Map<String, Integer> loadedInvestments = new HashMap<>();
+                    for (String key : investmentSection.getKeys(false)) {
+                        loadedInvestments.put(key, investmentSection.getInt(key, 0));
+                    }
+                    data.setSoulInvestments(loadedInvestments);
+                }
+                data.setCoins(playerConfig.getLong(path + "coins", 0L));
+                if (playerConfig.contains(path + "playtime-hours-rewarded")) {
+                    data.setPlaytimeHoursRewarded(playerConfig.getLong(path + "playtime-hours-rewarded"));
+                } else {
+                    data.setPlaytimeHoursRewarded(-1L);
+                }
 
                 playerDataMap.put(uuid, data);
             } catch (IllegalArgumentException ignored) {}
@@ -88,6 +122,7 @@ public class AbilityManager {
     public void reloadPlayerData() {
         playerConfig = YamlConfiguration.loadConfiguration(playerFile);
         playerDataMap.clear();
+        saveScheduled = false;
         loadPlayerData();
     }
 
@@ -113,7 +148,15 @@ public class AbilityManager {
         register(new Joker(plugin));
         register(new SpaceRuler(plugin));
         register(new Beauty(plugin));
+        register(new Demon(plugin));
+        register(new OnlySword(plugin));
+        register(new PhoenixII(plugin));
+        register(new DomainCaster(plugin));
+        register(new Chef(plugin));
+        register(new Valkyrie(plugin));
         register(new Chronos(plugin));
+        register(new Archangel(plugin));
+        register(new Necromancer(plugin));
     }
 
     @SuppressWarnings("unused")
@@ -169,7 +212,7 @@ public class AbilityManager {
         }
 
         data.setAbilityName(ability.getName());
-        long duration = ability.getGrade().getDurationInMillis();
+        long duration = getDurationMillis(ability.getGrade());
         data.setExpiryTime(System.currentTimeMillis() + duration);
 
         ability.onAcquire(player);
@@ -186,6 +229,14 @@ public class AbilityManager {
         player.sendMessage(Component.text("  능력: ").color(NamedTextColor.WHITE)
                 .append(Component.text(ability.getDisplayName(), NamedTextColor.AQUA)));
         player.sendMessage(Component.text("============", NamedTextColor.GOLD));
+
+        savePlayerData(player.getUniqueId());
+    }
+
+    public boolean assignAbility(Player player, AbilityBase ability) {
+        if (ability == null) return false;
+        applyAbility(player, ability);
+        return true;
     }
 
     public void handleJoin(Player player) {
@@ -194,11 +245,12 @@ public class AbilityManager {
 
         if (data.getAbilityName() == null || data.isExpired()) {
             Map<AbilityGrade, Double> dailyWeights = new EnumMap<>(AbilityGrade.class);
-            dailyWeights.put(AbilityGrade.D, 50.0);
-            dailyWeights.put(AbilityGrade.C, 30.0);
-            dailyWeights.put(AbilityGrade.B, 15.0);
-            dailyWeights.put(AbilityGrade.A, 4.0);
-            dailyWeights.put(AbilityGrade.S, 0.9);
+            dailyWeights.put(AbilityGrade.D, 45.0);
+            dailyWeights.put(AbilityGrade.C, 40.0);
+            dailyWeights.put(AbilityGrade.B, 9.0);
+            dailyWeights.put(AbilityGrade.A, 5.0);
+            dailyWeights.put(AbilityGrade.S, 0.86);
+            dailyWeights.put(AbilityGrade.S_PLUS, 0.04);
             dailyWeights.put(AbilityGrade.SS, 0.1);
 
             double chance = random.nextDouble() * 100;
@@ -216,8 +268,7 @@ public class AbilityManager {
             assignAbilityByGrade(player, rolledGrade);
             AbilityBase current = registeredAbilities.get(getPlayerData(uuid).getAbilityName());
             if (current != null) {
-                player.sendMessage(Component.text("오늘은 " + current.getDisplayName() + " 능력을 획득하였습니다!",
-                        NamedTextColor.GREEN));
+                sendRerollMessage(player, current);
                 player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
             }
         } else {
@@ -234,8 +285,22 @@ public class AbilityManager {
         }
     }
 
+    private long getDurationMillis(AbilityGrade grade) {
+        String key = "ability-settings.durations." + grade.name();
+        return plugin.getConfig().getLong(key, grade.getDurationInMillis());
+    }
+
+    private void sendRerollMessage(Player player, AbilityBase ability) {
+        String prefix = plugin.getConfig().getString("messages.prefix", "");
+        String template = plugin.getConfig().getString("messages.reroll-announce",
+                "<yellow>오늘은 <white>%ability% <yellow>능력이 지급되었습니다");
+        String raw = (prefix == null ? "" : prefix) + (template == null ? "" : template);
+        String message = raw.replace("%ability%", ability.getDisplayName());
+        player.sendMessage(miniMessage.deserialize(message));
+    }
+
     private boolean isHighGrade(AbilityGrade grade) {
-        return grade == AbilityGrade.S || grade == AbilityGrade.SS;
+        return grade == AbilityGrade.S || grade == AbilityGrade.S_PLUS || grade == AbilityGrade.SS;
     }
 
     private void applyHighGradeBuffs(Player player) {
@@ -264,6 +329,19 @@ public class AbilityManager {
         PlayerData data = playerDataMap.get(uuid);
         if (data == null) return;
 
+        writePlayerData(uuid, data);
+        scheduleSave();
+    }
+
+    public void saveAll() {
+        for (Map.Entry<UUID, PlayerData> entry : playerDataMap.entrySet()) {
+            writePlayerData(entry.getKey(), entry.getValue());
+        }
+        flushPlayerConfig();
+        saveScheduled = false;
+    }
+
+    private void writePlayerData(UUID uuid, PlayerData data) {
         String path = "players." + uuid + ".";
         playerConfig.set(path + "ability", data.getAbilityName());
         playerConfig.set(path + "expiry", data.getExpiryTime());
@@ -272,17 +350,40 @@ public class AbilityManager {
         playerConfig.set(path + "mined-debris", data.getMinedDebris());
         playerConfig.set(path + "last-debris-reset", data.getLastDebrisReset());
         playerConfig.set(path + "dog-owner", data.getDogOwnerUuid() != null ? data.getDogOwnerUuid().toString() : null);
+        playerConfig.set(path + "domain-home", data.getDomainHome());
+        data.purgeExpiredSouls();
+        playerConfig.set(path + "souls", data.getSoulCount());
+        playerConfig.set(path + "soul-expiries", data.getSoulExpiries());
+        String investmentPath = path + "soul-investments";
+        playerConfig.set(investmentPath, null);
+        for (Map.Entry<String, Integer> entry : data.getSoulInvestments().entrySet()) {
+            playerConfig.set(investmentPath + "." + entry.getKey(), entry.getValue());
+        }
+        playerConfig.set(path + "coins", data.getCoins());
+        playerConfig.set(path + "playtime-hours-rewarded", data.getPlaytimeHoursRewarded());
+    }
 
+    private void scheduleSave() {
+        if (saveScheduled) return;
+        saveScheduled = true;
+
+        if (!plugin.isEnabled()) {
+            saveScheduled = false;
+            flushPlayerConfig();
+            return;
+        }
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            saveScheduled = false;
+            flushPlayerConfig();
+        }, SAVE_DEBOUNCE_TICKS);
+    }
+
+    private void flushPlayerConfig() {
         try {
             playerConfig.save(playerFile);
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "[ReAbility] playerdata.yml 저장 중 오류 발생", e);
-        }
-    }
-
-    public void saveAll() {
-        for (UUID uuid : playerDataMap.keySet()) {
-            savePlayerData(uuid);
         }
     }
 }

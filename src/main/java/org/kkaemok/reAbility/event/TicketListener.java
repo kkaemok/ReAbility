@@ -68,8 +68,17 @@ public class TicketListener implements Listener {
                 return;
             }
 
+            if (data.getExpiryTime() == Long.MAX_VALUE) {
+                player.sendMessage("이미 영구 능력 상태입니다.");
+                return;
+            }
+
             long addMillis = keepDays * 24L * 60 * 60 * 1000;
-            data.setExpiryTime(data.getExpiryTime() + addMillis);
+            long currentExpiry = data.getExpiryTime();
+            long newExpiry = currentExpiry >= Long.MAX_VALUE - addMillis
+                    ? Long.MAX_VALUE
+                    : currentExpiry + addMillis;
+            data.setExpiryTime(newExpiry);
             abilityManager.savePlayerData(player.getUniqueId());
 
             item.setAmount(item.getAmount() - 1);

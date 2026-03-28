@@ -25,7 +25,7 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (!(sender instanceof Player player)) return true;
 
-        if (label.equalsIgnoreCase("길드챗")) {
+        if (command.getName().equalsIgnoreCase("길드챗")) {
             guildManager.toggleGuildChat(player);
             return true;
         }
@@ -39,6 +39,14 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
             case "생성":
                 if (args.length < 3) {
                     player.sendMessage("사용법: /길드 생성 [길드명] [색상]");
+                    return true;
+                }
+                if (guildManager.getGuildByMember(player.getUniqueId()) != null) {
+                    player.sendMessage("이미 길드에 소속되어 있습니다.");
+                    return true;
+                }
+                if (guildManager.hasGuildName(args[1])) {
+                    player.sendMessage("이미 존재하는 길드명입니다.");
                     return true;
                 }
                 if (guildManager.consumeItem(player, Material.DIAMOND, 100)) {
@@ -126,7 +134,7 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
         if (!(sender instanceof Player)) return List.of();
         Player player = (Player) sender;
 
-        if (alias.equalsIgnoreCase("길드챗")) return List.of();
+        if (command.getName().equalsIgnoreCase("길드챗")) return List.of();
 
         if (args.length == 1) {
             return partialMatches(args[0], List.of("생성", "요청", "수락", "탈퇴", "확장"));
@@ -135,10 +143,10 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2) {
             switch (args[0]) {
                 case "요청" -> {
-                    return partialMatches(args[1], new ArrayList<>(guildManager.guilds.keySet()));
+                    return partialMatches(args[1], guildManager.getGuildNames());
                 }
                 case "수락" -> {
-                    List<String> reqs = guildManager.pendingRequests.getOrDefault(player.getUniqueId(), List.of());
+                    List<String> reqs = guildManager.getPendingRequests(player.getUniqueId());
                     return partialMatches(args[1], new ArrayList<>(reqs));
                 }
                 default -> {

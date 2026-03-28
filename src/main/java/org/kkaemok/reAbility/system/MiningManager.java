@@ -7,14 +7,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.data.PlayerData;
 
 public class MiningManager implements Listener {
 
+    private final ReAbility plugin;
     private final AbilityManager abilityManager;
 
-    public MiningManager(AbilityManager abilityManager) {
+    public MiningManager(ReAbility plugin, AbilityManager abilityManager) {
+        this.plugin = plugin;
         this.abilityManager = abilityManager;
     }
 
@@ -36,11 +39,14 @@ public class MiningManager implements Listener {
         long now = System.currentTimeMillis();
 
         if (blockType == Material.DIAMOND_ORE || blockType == Material.DEEPSLATE_DIAMOND_ORE) {
-            if (now - data.getLastDiamondReset() >= 3600000) {
+            long resetIntervalMs = getResetIntervalMs("diamond", 72000L);
+            if (now - data.getLastDiamondReset() >= resetIntervalMs) {
                 data.resetDiamond();
             }
 
-            int limit = isMiner ? 700 : 100;
+            int baseLimit = getLimit("diamond", 100);
+            int minerBonus = getMinerBonus("diamond", 700);
+            int limit = isMiner ? baseLimit + Math.max(0, minerBonus) : baseLimit;
             if (data.getMinedDiamond() >= limit) {
                 event.setCancelled(true);
                 player.sendActionBar(Component.text(
@@ -49,12 +55,15 @@ public class MiningManager implements Listener {
             } else {
                 data.addMinedDiamond();
             }
-        } else if (blockType == Material.ANCIENT_DEBRIS) {
-            if (now - data.getLastDebrisReset() >= 10800000) {
+        } else {
+            long resetIntervalMs = getResetIntervalMs("ancient-debris", 216000L);
+            if (now - data.getLastDebrisReset() >= resetIntervalMs) {
                 data.resetDebris();
             }
 
-            int limit = isMiner ? 7 : 2;
+            int baseLimit = getLimit("ancient-debris", 2);
+            int minerBonus = getMinerBonus("ancient-debris", 7);
+            int limit = isMiner ? baseLimit + Math.max(0, minerBonus) : baseLimit;
             if (data.getMinedDebris() >= limit) {
                 event.setCancelled(true);
                 player.sendActionBar(Component.text(
@@ -64,5 +73,18 @@ public class MiningManager implements Listener {
                 data.addMinedDebris();
             }
         }
+    }
+
+    private int getLimit(String key, int def) {
+        return plugin.getConfig().getInt("mining-limits." + key + ".amount", def);
+    }
+
+    private int getMinerBonus(String key, int def) {
+        return plugin.getConfig().getInt("mining-limits." + key + ".miner-bonus", def);
+    }
+
+    private long getResetIntervalMs(String key, long defTicks) {
+        long ticks = plugin.getConfig().getLong("mining-limits." + key + ".reset-interval-ticks", defTicks);
+        return Math.max(0L, ticks) * 50L;
     }
 }

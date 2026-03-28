@@ -11,23 +11,27 @@ public enum RerollTicket {
     TICKET_B1("B등급 이상 랜덤 리롤권 I", new LinkedHashMap<>() {{
         put(AbilityGrade.B, 60.0);
         put(AbilityGrade.A, 35.0);
-        put(AbilityGrade.S, 4.5);
-        put(AbilityGrade.SS, 0.5);
+        put(AbilityGrade.S, 4.7);
+        put(AbilityGrade.S_PLUS, 0.1);
+        put(AbilityGrade.SS, 0.2);
     }}),
     TICKET_B2("B등급 이상 랜덤 리롤권 II", new LinkedHashMap<>() {{
         put(AbilityGrade.B, 45.0);
         put(AbilityGrade.A, 48.0);
-        put(AbilityGrade.S, 6.3);
-        put(AbilityGrade.SS, 0.7);
+        put(AbilityGrade.S, 6.35);
+        put(AbilityGrade.S_PLUS, 0.15);
+        put(AbilityGrade.SS, 0.5);
     }}),
     TICKET_A("A등급 이상 랜덤 리롤권", new LinkedHashMap<>() {{
-        put(AbilityGrade.A, 80.0);
-        put(AbilityGrade.S, 18.0);
-        put(AbilityGrade.SS, 2.0);
+        put(AbilityGrade.A, 81.0);
+        put(AbilityGrade.S, 17.5);
+        put(AbilityGrade.S_PLUS, 0.5);
+        put(AbilityGrade.SS, 1.0);
     }}),
     TICKET_S("S등급 이상 랜덤 리롤권", new LinkedHashMap<>() {{
-        put(AbilityGrade.S, 90.0);
-        put(AbilityGrade.SS, 10.0);
+        put(AbilityGrade.S, 93.0);
+        put(AbilityGrade.S_PLUS, 1.0);
+        put(AbilityGrade.SS, 6.0);
     }});
 
     private final String name;

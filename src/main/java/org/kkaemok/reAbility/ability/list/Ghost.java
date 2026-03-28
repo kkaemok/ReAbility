@@ -16,7 +16,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
 import org.kkaemok.reAbility.system.SpectatorLockListener;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.UUID;
 public class Ghost extends AbilityBase {
     private final ReAbility plugin;
     private final Map<UUID, Long> skillCooldown = new HashMap<>();
+    private static final double DEFAULT_NEARBY_RANGE = 10.0;
 
     public Ghost(ReAbility plugin) {
         this.plugin = plugin;
@@ -39,7 +42,7 @@ public class Ghost extends AbilityBase {
     public String[] getDescription() {
         return new String[]{
                 "24시간 스피드 2 효과 획득.",
-                "몹 처치 시 10초 동안 자유 비행 가능.",
+                "몹 처치 시 5초 동안 자유 비행 가능.",
                 "주변 10칸 내 플레이어가 있으면 투명(갑옷 포함).",
                 "스킬 {고스트}: 다이아 50개 소모, 20초 관전자",
                 "종료 후 힘 1 효과 획득 (쿨타임 5분)."
@@ -54,6 +57,7 @@ public class Ghost extends AbilityBase {
     @Override
     public void onDeactivate(Player player) {
         player.removePotionEffect(PotionEffectType.SPEED);
+        player.removePotionEffect(PotionEffectType.STRENGTH);
         player.setAllowFlight(false);
         showPlayerToAll(player);
         player.removeScoreboardTag(SpectatorLockListener.SPECTATOR_LOCK_TAG);
@@ -66,34 +70,29 @@ public class Ghost extends AbilityBase {
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (!isHasAbility(player)) continue;
-                    if (player.getGameMode() == GameMode.SPECTATOR) continue;
+                double range = plugin.getAbilityConfigManager()
+                        .getDouble(getName(), "stats.nearby-range", DEFAULT_NEARBY_RANGE);
+                double rangeSquared = range * range;
 
-                    boolean nearbyEnemy = false;
+                for (Player ghost : Bukkit.getOnlinePlayers()) {
+                    if (!isHasAbility(ghost)) continue;
+                    if (ghost.getGameMode() == GameMode.SPECTATOR) continue;
+
+                    var ghostLoc = ghost.getLocation();
+
                     for (Player other : Bukkit.getOnlinePlayers()) {
-                        if (player.equals(other)) continue;
-                        if (player.getWorld().equals(other.getWorld())
-                                && player.getLocation().distance(other.getLocation()) <= 10) {
-                            nearbyEnemy = true;
-                            break;
-                        }
-                    }
+                        if (ghost.equals(other)) continue;
+                        if (!ghost.getWorld().equals(other.getWorld())) continue;
 
-                    if (nearbyEnemy) {
-                        hidePlayerFromAll(player);
-                    } else {
-                        showPlayerToAll(player);
+                        if (ghostLoc.distanceSquared(other.getLocation()) <= rangeSquared) {
+                            other.hidePlayer(plugin, ghost);
+                        } else {
+                            other.showPlayer(plugin, ghost);
+                        }
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 10L);
-    }
-
-    private void hidePlayerFromAll(Player ghost) {
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            online.hidePlayer(plugin, ghost);
-        }
     }
 
     private void showPlayerToAll(Player ghost) {
@@ -109,7 +108,7 @@ public class Ghost extends AbilityBase {
         if (!isHasAbility(player)) return;
 
         player.setAllowFlight(true);
-        player.sendMessage(Component.text("[!] 몹을 처치하여 10초 동안 비행이 가능합니다!", NamedTextColor.AQUA));
+        player.sendMessage(Component.text("[!] 몹을 처치하여 5초 동안 비행이 가능합니다!", NamedTextColor.AQUA));
 
         new BukkitRunnable() {
             @Override
@@ -119,13 +118,15 @@ public class Ghost extends AbilityBase {
                     player.sendMessage(Component.text("[!] 비행 시간이 종료되었습니다.", NamedTextColor.GRAY));
                 }
             }
-        }.runTaskLater(plugin, 200L);
+        }.runTaskLater(plugin, 100L);
     }
 
     @Override
     public void onSneakSkill(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.DIAMOND || item.getAmount() < 50) return;
+        SkillCost cost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "ghost", Material.DIAMOND, 50);
+        if (!cost.matchesHand(item)) return;
 
         long now = System.currentTimeMillis();
         if (now < skillCooldown.getOrDefault(player.getUniqueId(), 0L)) {
@@ -133,11 +134,16 @@ public class Ghost extends AbilityBase {
             return;
         }
 
-        item.setAmount(item.getAmount() - 50);
-        skillCooldown.put(player.getUniqueId(), now + 300000);
+        if (!cost.consumeFromHand(player)) return;
+        long cooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.ghost.cooldown-ms", 300000L);
+        int durationTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.ghost.duration-ticks", 400);
+        skillCooldown.put(player.getUniqueId(), now + cooldownMs);
 
         Bukkit.broadcast(Component.text("[!] 유령 " + player.getName() + "이(가) {고스트}를 사용했습니다!",
                 NamedTextColor.GRAY));
+        SkillParticles.ghostSkill(player);
 
         GameMode prevMode = player.getGameMode();
         player.setGameMode(GameMode.SPECTATOR);
@@ -155,7 +161,7 @@ public class Ghost extends AbilityBase {
                             NamedTextColor.GOLD));
                 }
             }
-        }.runTaskLater(plugin, 400L);
+        }.runTaskLater(plugin, durationTicks);
     }
 
     private boolean isHasAbility(Player player) {

@@ -12,12 +12,10 @@ public class GuildListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
-        if (gm.pendingRequests.containsKey(e.getPlayer().getUniqueId())) {
-            List<String> reqs = gm.pendingRequests.get(e.getPlayer().getUniqueId());
-            if (!reqs.isEmpty()) {
-                e.getPlayer().sendMessage("[!] 보류 중인 길드 가입 요청: " + String.join(", ", reqs));
-                e.getPlayer().sendMessage("/길드 수락 <플레이어명> 명령어로 수락하세요.");
-            }
+        List<String> reqs = gm.getPendingRequests(e.getPlayer().getUniqueId());
+        if (!reqs.isEmpty()) {
+            e.getPlayer().sendMessage("[!] 보류 중인 길드 가입 요청: " + String.join(", ", reqs));
+            e.getPlayer().sendMessage("/길드 수락 <플레이어명> 명령어로 수락하세요.");
         }
     }
 }

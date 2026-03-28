@@ -7,18 +7,21 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityGrade;
+import org.kkaemok.reAbility.ability.SkillCost;
+import org.kkaemok.reAbility.data.PlayerData;
 import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.utils.SkillParticles;
 
 import java.util.*;
 
@@ -28,10 +31,10 @@ public class Chronos extends AbilityBase {
     private final Map<UUID, Long> roarCooldown = new HashMap<>();
     private final Map<UUID, Long> wisdomCooldown = new HashMap<>();
     private final Map<UUID, Long> stopCooldown = new HashMap<>();
-    private final Map<UUID, Long> barrierCooldown = new HashMap<>();
-    private final Map<UUID, Long> barrierEndTime = new HashMap<>();
     private final Set<UUID> frozenPlayers = new HashSet<>();
-    private BukkitRunnable passiveTask;
+    private final Map<UUID, BukkitTask> passiveTasks = new HashMap<>();
+    private final Map<UUID, Long> dailyGiftCooldown = new HashMap<>();
+    private long timeStopEndsAt = 0L;
 
     public Chronos(ReAbility plugin) {
         this.plugin = plugin;
@@ -54,7 +57,6 @@ public class Chronos extends AbilityBase {
                 "스킬 {카이로스의 지혜}: 네더라이트 파편 2개 + 저항2/재생2 15초 (쿨타임 1시간)",
                 "스킬 {시간 단절}: 네더라이트 주괴 3개 소모,",
                 "20초 의식 후 1분간 자신 제외 모두 경직 (쿨타임 1시간)",
-                "/방어막: 체력 4칸 소모, 15초간 1칸 접근 시 적 넉백 (쿨타임 6분)",
                 "* 경직 중 이동/공격 불가, 황금사과/토템 사용 가능"
         };
     }
@@ -66,15 +68,28 @@ public class Chronos extends AbilityBase {
 
     @Override
     public void onDeactivate(Player player) {
-        if (passiveTask != null) passiveTask.cancel();
-        frozenPlayers.clear();
+        BukkitTask task = passiveTasks.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+        dailyGiftCooldown.remove(player.getUniqueId());
+        clearTimeStop();
+        player.removePotionEffect(PotionEffectType.STRENGTH);
+        player.removePotionEffect(PotionEffectType.REGENERATION);
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+        player.removePotionEffect(PotionEffectType.SPEED);
     }
 
     private void startPassiveTask(Player chronos) {
-        passiveTask = new BukkitRunnable() {
+        BukkitTask existing = passiveTasks.remove(chronos.getUniqueId());
+        if (existing != null) existing.cancel();
+
+        BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
-                if (!chronos.isOnline()) { this.cancel(); return; }
+                if (!chronos.isOnline() || !isHasAbility(chronos)) {
+                    BukkitTask current = passiveTasks.remove(chronos.getUniqueId());
+                    if (current != null) current.cancel();
+                    return;
+                }
 
                 boolean guildMemberNearby = chronos.getNearbyEntities(100, 100, 100).stream()
                         .filter(e -> e instanceof Player)
@@ -91,9 +106,45 @@ public class Chronos extends AbilityBase {
                     chronos.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 0, false, false));
                     chronos.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 40, 0, false, false));
                 }
+
+                tryGrantDailyGift(chronos);
             }
-        };
-        passiveTask.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 20L);
+        passiveTasks.put(chronos.getUniqueId(), task);
+    }
+
+    private void tryGrantDailyGift(Player chronos) {
+        long now = System.currentTimeMillis();
+        long next = dailyGiftCooldown.getOrDefault(chronos.getUniqueId(), 0L);
+        if (now < next) return;
+
+        List<Player> recipients = new ArrayList<>();
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            if (target.equals(chronos)) continue;
+            if (!isSameGuild(chronos, target)) continue;
+            recipients.add(target);
+        }
+        if (recipients.isEmpty()) return;
+
+        long dayMs = 24L * 60 * 60 * 1000;
+        long maxExpiry = now + (dayMs * 5);
+        int granted = 0;
+
+        for (Player target : recipients) {
+            PlayerData data = plugin.getAbilityManager().getPlayerData(target.getUniqueId());
+            if (data.getAbilityName() == null || data.isExpired()) continue;
+            if (data.getExpiryTime() == Long.MAX_VALUE) continue;
+            if (data.getExpiryTime() >= maxExpiry) continue;
+
+            long newExpiry = Math.min(data.getExpiryTime() + dayMs, maxExpiry);
+            data.setExpiryTime(newExpiry);
+            plugin.getAbilityManager().savePlayerData(target.getUniqueId());
+            granted++;
+        }
+
+        if (granted > 0) {
+            dailyGiftCooldown.put(chronos.getUniqueId(), now + dayMs);
+        }
     }
 
     @Override
@@ -101,40 +152,57 @@ public class Chronos extends AbilityBase {
         ItemStack item = player.getInventory().getItemInMainHand();
         long now = System.currentTimeMillis();
 
-        if (item.getType() == Material.NETHERITE_INGOT && item.getAmount() >= 2) {
-            if (checkCooldown(player, roarCooldown, 600000, now)) {
-                item.setAmount(item.getAmount() - 2);
+        SkillCost roarCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "roar", Material.NETHERITE_INGOT, 2);
+        if (roarCost.matchesHand(item)) {
+            long cooldownMs = plugin.getAbilityConfigManager()
+                    .getLong(getName(), "skills.roar.cooldown-ms", 600000L);
+            if (checkCooldown(player, roarCooldown, cooldownMs, now)) {
+                if (!roarCost.consumeFromHand(player)) return;
+                SkillParticles.chronosRoar(player);
                 executeRoar(player);
                 broadcastSkill(player, "{시간의 포효}");
             }
             return;
         }
 
-        if (item.getType() == Material.NETHERITE_INGOT && item.getAmount() >= 3) {
-            if (checkCooldown(player, stopCooldown, 3600000, now)) {
-                item.setAmount(item.getAmount() - 3);
+        SkillCost severanceCost = plugin.getAbilityConfigManager()
+                .getSkillCost(getName(), "severance", Material.NETHERITE_INGOT, 3);
+        if (severanceCost.matchesHand(item)) {
+            long cooldownMs = plugin.getAbilityConfigManager()
+                    .getLong(getName(), "skills.severance.cooldown-ms", 3600000L);
+            if (checkCooldown(player, stopCooldown, cooldownMs, now)) {
+                if (!severanceCost.consumeFromHand(player)) return;
+                SkillParticles.chronosSeveranceCharge(player);
                 startTimeSeverance(player);
                 broadcastSkill(player, "{시간 단절}");
             }
             return;
         }
 
-        if (checkCooldown(player, wisdomCooldown, 3600000, now)) {
-            player.getInventory().addItem(new ItemStack(Material.NETHERITE_SCRAP, 2));
+        long wisdomCooldownMs = plugin.getAbilityConfigManager()
+                .getLong(getName(), "skills.wisdom.cooldown-ms", 3600000L);
+        if (checkCooldown(player, wisdomCooldown, wisdomCooldownMs, now)) {
+            int rewardAmount = plugin.getAbilityConfigManager()
+                    .getInt(getName(), "skills.wisdom.reward-amount", 2);
+            player.getInventory().addItem(new ItemStack(Material.NETHERITE_SCRAP, rewardAmount));
             player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 300, 1, false, false));
             player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 300, 1, false, false));
-            player.sendMessage(Component.text("[!] 카이로스의 지혜로 네더라이트 파편 2개를 획득했습니다.",
+            SkillParticles.chronosWisdom(player);
+            player.sendMessage(Component.text("[!] 카이로스의 지혜로 네더라이트 파편 " + rewardAmount + "개를 획득했습니다.",
                     NamedTextColor.GOLD));
         }
     }
 
     private void executeRoar(Player chronos) {
+        double damage = plugin.getAbilityConfigManager()
+                .getDouble(getName(), "skills.roar.damage", 100.0);
         chronos.getNearbyEntities(500, 500, 500).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
                 .filter(p -> !isSameGuild(chronos, p))
                 .forEach(target -> {
-                    target.damage(100.0, chronos);
+                    target.damage(damage, chronos);
                     target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 400, 2));
                     target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 400, 0));
                     target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 400, 0));
@@ -165,107 +233,67 @@ public class Chronos extends AbilityBase {
     }
 
     private void applyTimeStop(Player chronos) {
+        int durationTicks = plugin.getAbilityConfigManager()
+                .getInt(getName(), "skills.severance.duration-ticks", 1200);
+        long durationMs = durationTicks * 50L;
+        long now = System.currentTimeMillis();
+        timeStopEndsAt = Math.max(timeStopEndsAt, now + durationMs);
+
+        frozenPlayers.clear();
         Bukkit.getOnlinePlayers().stream()
                 .filter(p -> !p.equals(chronos))
                 .forEach(p -> frozenPlayers.add(p.getUniqueId()));
 
+        SkillParticles.chronosSeveranceBurst(chronos);
         Bukkit.broadcast(Component.text("[!] 시간 단절 발동! 1분 동안 크로노스 외 모두가 경직됩니다.",
                 NamedTextColor.AQUA));
 
         new BukkitRunnable() {
             @Override
             public void run() {
+                if (timeStopEndsAt == 0L) return;
+                if (System.currentTimeMillis() < timeStopEndsAt) return;
                 frozenPlayers.clear();
+                timeStopEndsAt = 0L;
                 Bukkit.broadcast(Component.text("[!] 시간 단절이 종료되었습니다.", NamedTextColor.GREEN));
             }
-        }.runTaskLater(plugin, 1200L);
+        }.runTaskLater(plugin, durationTicks);
     }
 
-    public boolean activateBarrier(Player player) {
-        long now = System.currentTimeMillis();
-        if (!checkCooldown(player, barrierCooldown, 360000, now)) return false;
+    private void clearTimeStop() {
+        timeStopEndsAt = 0L;
+        frozenPlayers.clear();
+    }
 
-        if (player.getHealth() <= 8.0) {
-            player.sendMessage(Component.text("체력이 부족하여 방어막을 사용할 수 없습니다.", NamedTextColor.RED));
+    private boolean ensureTimeStopActive() {
+        if (timeStopEndsAt == 0L) {
+            frozenPlayers.clear();
             return false;
         }
-
-        player.setHealth(player.getHealth() - 8.0);
-        barrierEndTime.put(player.getUniqueId(), now + 15000);
-        player.sendMessage(Component.text("[!] 방어막이 15초 동안 유지됩니다.", NamedTextColor.AQUA));
+        if (System.currentTimeMillis() >= timeStopEndsAt) {
+            frozenPlayers.clear();
+            timeStopEndsAt = 0L;
+            return false;
+        }
         return true;
     }
 
     @EventHandler
-    public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) return;
-        Long end = barrierEndTime.get(player.getUniqueId());
-        if (end == null || System.currentTimeMillis() > end) {
-            if (end != null) barrierEndTime.remove(player.getUniqueId());
-            return;
-        }
-
-        if (!(event instanceof EntityDamageByEntityEvent)) return;
-        EntityDamageByEntityEvent byEntity = (EntityDamageByEntityEvent) event;
-        if (!(byEntity.getDamager() instanceof Player attacker)) return;
-        if (attacker.equals(player)) return;
-        if (isSameGuild(player, attacker)) return;
-
-        double dx = attacker.getLocation().getX() - player.getLocation().getX();
-        double dz = attacker.getLocation().getZ() - player.getLocation().getZ();
-        double distanceSquared = dx * dx + dz * dz;
-        if (distanceSquared <= 1.0) {
-            attacker.setVelocity(attacker.getLocation().toVector()
-                    .subtract(player.getLocation().toVector()).normalize().multiply(1.2));
-        }
-    }
-
-    @EventHandler
     public void onMove(PlayerMoveEvent event) {
-        if (frozenPlayers.contains(event.getPlayer().getUniqueId())) {
+        if (frozenPlayers.contains(event.getPlayer().getUniqueId()) && ensureTimeStopActive()) {
             Location from = event.getFrom();
             Location to = event.getTo();
             if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
                 event.setTo(event.getFrom());
             }
         }
-
-        if (barrierEndTime.isEmpty()) return;
-        if (!isBlockMoved(event)) return;
-
-        Player mover = event.getPlayer();
-        long now = System.currentTimeMillis();
-        List<UUID> expired = new ArrayList<>();
-
-        for (Map.Entry<UUID, Long> entry : barrierEndTime.entrySet()) {
-            if (entry.getValue() <= now) {
-                expired.add(entry.getKey());
-                continue;
-            }
-
-            Player owner = Bukkit.getPlayer(entry.getKey());
-            if (owner == null || !owner.isOnline()) continue;
-            if (owner.equals(mover)) continue;
-            if (!owner.getWorld().equals(mover.getWorld())) continue;
-            if (isSameGuild(owner, mover)) continue;
-
-            double dx = mover.getLocation().getX() - owner.getLocation().getX();
-            double dz = mover.getLocation().getZ() - owner.getLocation().getZ();
-            double distanceSquared = dx * dx + dz * dz;
-            if (distanceSquared <= 1.0) {
-                mover.setVelocity(mover.getLocation().toVector()
-                        .subtract(owner.getLocation().toVector()).normalize().multiply(1.2));
-            }
-        }
-
-        for (UUID id : expired) {
-            barrierEndTime.remove(id);
-        }
     }
 
     @EventHandler
     public void onAttack(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Player attacker && frozenPlayers.contains(attacker.getUniqueId())) {
+        if (event.getDamager() instanceof Player attacker
+                && frozenPlayers.contains(attacker.getUniqueId())
+                && ensureTimeStopActive()) {
             event.setCancelled(true);
         }
     }
@@ -291,11 +319,8 @@ public class Chronos extends AbilityBase {
                 NamedTextColor.LIGHT_PURPLE));
     }
 
-    private boolean isBlockMoved(PlayerMoveEvent event) {
-        if (event.getTo() == null) return false;
-        if (event.getFrom().getWorld() != event.getTo().getWorld()) return true;
-        return event.getFrom().getBlockX() != event.getTo().getBlockX()
-                || event.getFrom().getBlockY() != event.getTo().getBlockY()
-                || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
+    private boolean isHasAbility(Player player) {
+        return getName().equals(plugin.getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName());
     }
+
 }
