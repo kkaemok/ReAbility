@@ -64,7 +64,7 @@ public class DomainCaster extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "설정한 홈 기준 300칸이 자신의 영역입니다.",
+                "설정한 홈 기준 200칸이 자신의 영역입니다.",
                 "영역 내 버프: 힘2, 스피드3, 체력 2줄 증가.",
                 "영역확장: 철 블럭 20개 + 웅크리기, 30분 동안 영역 2000칸 (쿨 1시간).",
                 "확장 중에는 저항1이 추가됩니다.",
@@ -241,7 +241,7 @@ public class DomainCaster extends AbilityBase {
         if (!player.getWorld().equals(center.getWorld())) return false;
 
         int baseRadius = plugin.getAbilityConfigManager()
-                .getInt(getName(), "stats.base-radius", 300);
+                .getInt(getName(), "stats.base-radius", 200);
         int expandedRadius = plugin.getAbilityConfigManager()
                 .getInt(getName(), "stats.expanded-radius", 2000);
         int radius = isExpanded(player) ? expandedRadius : baseRadius;
@@ -255,7 +255,7 @@ public class DomainCaster extends AbilityBase {
         if (!location.getWorld().equals(center.getWorld())) return false;
 
         int baseRadius = plugin.getAbilityConfigManager()
-                .getInt(getName(), "stats.base-radius", 300);
+                .getInt(getName(), "stats.base-radius", 200);
         int expandedRadius = plugin.getAbilityConfigManager()
                 .getInt(getName(), "stats.expanded-radius", 2000);
         int radius = isExpanded(owner) ? expandedRadius : baseRadius;

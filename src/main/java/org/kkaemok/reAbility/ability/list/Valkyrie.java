@@ -53,7 +53,7 @@ public class Valkyrie extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "도끼 공격 속도 45% 감소.",
+                "도끼 공격 속도 45% 증가.",
                 "스킬 {천사의 날개}: 네더라이트 파편 2개 우클릭",
                 "30초 비행 + 도끼 리치 10칸 증가, 힘2 10초 (쿨타임 2분)",
                 "스킬 {분노의 회오리}: 네더라이트 파편 3개 웅크림",
@@ -201,7 +201,7 @@ public class Valkyrie extends AbilityBase {
         AttributeInstance attr = player.getAttribute(attrType);
         if (attr == null) return;
         removeAxeSpeed(player);
-        attr.addModifier(new AttributeModifier(getAxeSpeedKey(), -0.45, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
+        attr.addModifier(new AttributeModifier(getAxeSpeedKey(), 0.45, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
     }
 
     private void removeAxeSpeed(Player player) {
