@@ -26,11 +26,9 @@ import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
 
 import java.text.DecimalFormat;
-import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 public class ReAbilityScoreboard implements Listener {
@@ -50,7 +48,6 @@ public class ReAbilityScoreboard implements Listener {
     private final AbilityManager abilityManager;
     private final GuildManager guildManager;
     private final Map<UUID, Board> boards = new HashMap<>();
-    private final Set<UUID> mirrorMainTeams = new HashSet<>();
     private final DecimalFormat numberFormat = new DecimalFormat("#,###");
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private BukkitTask task;
@@ -77,7 +74,6 @@ public class ReAbilityScoreboard implements Listener {
             board.destroy();
         }
         boards.clear();
-        mirrorMainTeams.clear();
     }
 
     @EventHandler
@@ -88,9 +84,7 @@ public class ReAbilityScoreboard implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
-        mirrorMainTeams.remove(uuid);
-        Board board = boards.remove(uuid);
+        Board board = boards.remove(event.getPlayer().getUniqueId());
         if (board != null) {
             board.destroy();
         }
@@ -99,7 +93,6 @@ public class ReAbilityScoreboard implements Listener {
     private void updateAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             Board board = ensureBoard(player);
-            syncMainTeamsIfNeeded(player);
             updateBoard(player, board);
         }
     }
@@ -122,43 +115,35 @@ public class ReAbilityScoreboard implements Listener {
             previous.destroy();
         }
 
-        TargetScoreboard target = resolveTargetScoreboard(player);
-        Board board = Board.create(target.scoreboard(), player.getUniqueId(), miniMessage.deserialize(HEADER_MM));
+        Scoreboard target = resolveTargetScoreboard(player);
+        Board board = Board.create(target, player.getUniqueId(), miniMessage.deserialize(HEADER_MM));
 
         boards.put(player.getUniqueId(), board);
-        if (target.mirrorFromMain()) {
-            mirrorMainTeams.add(player.getUniqueId());
-        } else {
-            mirrorMainTeams.remove(player.getUniqueId());
-        }
         updateBoard(player, board);
     }
 
-    private TargetScoreboard resolveTargetScoreboard(Player player) {
+    private Scoreboard resolveTargetScoreboard(Player player) {
         var manager = Objects.requireNonNull(Bukkit.getScoreboardManager(), "Scoreboard manager");
         Scoreboard current = player.getScoreboard();
         Scoreboard main = manager.getMainScoreboard();
 
         if (current == main) {
+            if (isTabEnabled()) {
+                // TAB 팀(prefix/suffix) 기반 이름표를 그대로 유지하기 위해
+                // TAB 환경에서는 보드를 분리하지 않고 현재 보드를 사용한다.
+                return current;
+            }
             Scoreboard isolated = manager.getNewScoreboard();
             copyTeams(main, isolated);
             player.setScoreboard(isolated);
-            return new TargetScoreboard(isolated, true);
+            return isolated;
         }
 
-        return new TargetScoreboard(current, false);
+        return current;
     }
 
-    private void syncMainTeamsIfNeeded(Player player) {
-        if (!mirrorMainTeams.contains(player.getUniqueId())) return;
-        var manager = Bukkit.getScoreboardManager();
-        if (manager == null) return;
-
-        Scoreboard main = manager.getMainScoreboard();
-        Scoreboard target = player.getScoreboard();
-        if (target == main) return;
-
-        copyTeams(main, target);
+    private boolean isTabEnabled() {
+        return plugin.getServer().getPluginManager().isPluginEnabled("TAB");
     }
 
     private void copyTeams(Scoreboard source, Scoreboard target) {
@@ -181,9 +166,6 @@ public class ReAbilityScoreboard implements Listener {
                 copied.addEntry(entry);
             }
         }
-    }
-
-    private record TargetScoreboard(Scoreboard scoreboard, boolean mirrorFromMain) {
     }
 
     private void updateBoard(Player player, Board board) {
