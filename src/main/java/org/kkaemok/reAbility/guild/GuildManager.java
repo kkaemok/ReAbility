@@ -322,11 +322,17 @@ public class GuildManager {
             return;
         }
 
-        String groupId = "guild_" + guild.name.toLowerCase();
+        String groupId = "guild_" + guild.name.toLowerCase(Locale.ROOT);
         guildChatMode.remove(player.getUniqueId());
 
         if (guild.master.equals(player.getUniqueId())) {
-            removeUserFromGuild(player.getUniqueId(), groupId);
+            Set<UUID> memberUuids = getGuildMemberUuids(groupId);
+            memberUuids.add(player.getUniqueId());
+            for (UUID memberUuid : memberUuids) {
+                removeUserFromGuild(memberUuid, groupId);
+                guildChatMode.remove(memberUuid);
+            }
+
             guilds.remove(guild.name);
             pendingRequests.remove(player.getUniqueId());
             saveGuilds();
@@ -349,7 +355,9 @@ public class GuildManager {
     }
 
     private void removeUserFromGuild(UUID uuid, String groupId) {
-        lp.getUserManager().modifyUser(uuid, user -> user.data().remove(InheritanceNode.builder(groupId).build()));
+        lp.getUserManager().modifyUser(uuid, user -> user.data().clear(node ->
+                node instanceof InheritanceNode inheritanceNode
+                        && inheritanceNode.getGroupName().equalsIgnoreCase(groupId)));
     }
 
     private GuildData findGuildByName(String guildName) {
@@ -405,6 +413,18 @@ public class GuildManager {
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[ReAbility] 길드 인원 수 조회 실패: " + groupId, e);
             return Integer.MAX_VALUE;
+        }
+    }
+
+    private Set<UUID> getGuildMemberUuids(String groupId) {
+        try {
+            Map<UUID, Collection<Node>> users = lp.getUserManager()
+                    .searchAll(NodeMatcher.key("group." + groupId))
+                    .join();
+            return new HashSet<>(users.keySet());
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[ReAbility] 길드 멤버 조회 실패: " + groupId, e);
+            return new HashSet<>();
         }
     }
 
