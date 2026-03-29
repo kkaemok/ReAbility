@@ -128,6 +128,11 @@ public class ReAbilityScoreboard implements Listener {
         Scoreboard main = manager.getMainScoreboard();
 
         if (current == main) {
+            if (isTabEnabled()) {
+                // TAB 팀(prefix/suffix) 기반 이름표를 그대로 유지하기 위해
+                // TAB 환경에서는 보드를 분리하지 않고 현재 보드를 사용한다.
+                return current;
+            }
             Scoreboard isolated = manager.getNewScoreboard();
             copyTeams(main, isolated);
             player.setScoreboard(isolated);
@@ -135,6 +140,10 @@ public class ReAbilityScoreboard implements Listener {
         }
 
         return current;
+    }
+
+    private boolean isTabEnabled() {
+        return plugin.getServer().getPluginManager().isPluginEnabled("TAB");
     }
 
     private void copyTeams(Scoreboard source, Scoreboard target) {
