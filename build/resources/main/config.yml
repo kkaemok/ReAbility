@@ -1,0 +1,128 @@
+# ReAbility configuration
+
+world-settings:
+  default-max-health: 40.0
+  axe-damage-reduction: 2.0
+  border:
+    min-x: -30000
+    min-z: -30000
+    max-x: 30000
+    max-z: 30000
+
+mining-limits:
+  diamond:
+    amount: 100
+    miner-bonus: 600
+    reset-interval-ticks: 72000
+  ancient-debris:
+    amount: 2
+    miner-bonus: 5
+    reset-interval-ticks: 216000
+
+ability-settings:
+  auto-reroll-hours: 24
+  durations:
+    D: 86400000
+    C: 86400000
+    B: 86400000
+    A: 86400000
+    S: 86400000
+    S_PLUS: 86400000
+    SS: 86400000
+
+teleport-settings:
+  tpa-cooldown-default: 180
+  tpa-cooldown-homelover: 60
+  rtp-cooldown-default: 600
+  rtp-cooldown-space-lord: 0
+  tpa-request-timeout-seconds: 60
+
+sneak-skill:
+  block-look-guard:
+    enabled: true
+    max-distance: 6
+    message: "블럭을 보고 있습니다!"
+
+messages:
+  prefix: "<gold>[ReAbility] <white>"
+  reroll-announce: "<yellow>오늘은 <white>%ability% <yellow>능력이 지급되었습니다"
+
+# Shop settings
+shop:
+  menu:
+    title: "<bold><gradient:#FFE066:#FFB000>상점</gradient></bold>"
+    category-size: 27
+    item-size: 54
+    back-item:
+      material: ARROW
+      slot: 49
+      name: "<yellow>뒤로가기"
+      lore:
+        - "<gray>카테고리 메뉴로 돌아가기"
+  categories:
+    food:
+      enabled: true
+      slot: 11
+      icon: BREAD
+      display-name: "<#F9C74F>음식"
+      title: "<bold><#F9C74F>음식 상점</#F9C74F></bold>"
+      lore:
+        - "<gray>기본 식량"
+      items:
+        bread_pack:
+          enabled: true
+          slot: 10
+          material: BREAD
+          amount: 16
+          price: 40
+          display-name: "<white>빵 x16"
+          lore:
+            - "<gray>초반용 식량"
+        steak_pack:
+          enabled: true
+          slot: 12
+          material: COOKED_BEEF
+          amount: 16
+          price: 120
+          display-name: "<white>스테이크 x16"
+          lore:
+            - "<gray>포만감이 높은 식량"
+        golden_apple:
+          enabled: true
+          slot: 14
+          material: GOLDEN_APPLE
+          amount: 2
+          price: 180
+          display-name: "<white>황금사과 x2"
+          lore:
+            - "<gray>긴급 전투 회복용"
+    blocks:
+      enabled: true
+      slot: 15
+      icon: STONE
+      display-name: "<#90BE6D>블럭"
+      title: "<bold><#90BE6D>블럭 상점</#90BE6D></bold>"
+      lore:
+        - "<gray>건축 재료"
+      items:
+        stone_stack:
+          enabled: true
+          slot: 10
+          material: STONE
+          amount: 64
+          price: 70
+          display-name: "<white>돌 x64"
+        oak_log_stack:
+          enabled: true
+          slot: 12
+          material: OAK_LOG
+          amount: 64
+          price: 85
+          display-name: "<white>참나무 원목 x64"
+        glass_stack:
+          enabled: true
+          slot: 14
+          material: GLASS
+          amount: 64
+          price: 100
+          display-name: "<white>유리 x64"

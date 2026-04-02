@@ -35,7 +35,7 @@ public class ReAbilityScoreboard implements Listener {
     private static final TextColor KILLS_COLOR = TextColor.fromHexString("#FF4D6D");
     private static final TextColor DEATHS_COLOR = TextColor.fromHexString("#E63946");
     private static final TextColor PLAYTIME_COLOR = TextColor.fromHexString("#00D1B2");
-
+    private static final TextColor GUILD_COLOR = TextColor.fromHexString("#4CC9F0");
     private final ReAbility plugin;
     private final AbilityManager abilityManager;
     private final GuildManager guildManager;
@@ -130,12 +130,12 @@ public class ReAbilityScoreboard implements Listener {
         String playtime = formatPlaytime(player.getStatistic(Statistic.PLAY_ONE_MINUTE));
 
         List<Component> lines = List.of(
-                composeLine("Ability", Component.text(abilityName, ABILITY_COLOR)),
-                composeLine("Guild", buildGuildValue(guild)),
-                composeLine("Coins", Component.text(numberFormat.format(coins), COINS_COLOR)),
-                composeLine("Kills", Component.text(String.valueOf(kills), KILLS_COLOR)),
-                composeLine("Deaths", Component.text(String.valueOf(deaths), DEATHS_COLOR)),
-                composeLine("Playtime", Component.text(playtime, PLAYTIME_COLOR))
+                composeLine("⚡", ABILITY_COLOR, "Ability", Component.text(abilityName, ABILITY_COLOR)),
+                composeLine("🛡", GUILD_COLOR, "Guild", buildGuildValue(guild)),
+                composeLine("💰", COINS_COLOR, "Coins", Component.text(numberFormat.format(coins), COINS_COLOR)),
+                composeLine("🗡", KILLS_COLOR, "Kills", Component.text(String.valueOf(kills), KILLS_COLOR)),
+                composeLine("☠", DEATHS_COLOR, "Deaths", Component.text(String.valueOf(deaths), DEATHS_COLOR)),
+                composeLine("⏳", PLAYTIME_COLOR, "Playtime", Component.text(playtime, PLAYTIME_COLOR))
         );
 
         board.updateLines(lines);
@@ -158,6 +158,12 @@ public class ReAbilityScoreboard implements Listener {
 
     private Component composeLine(String label, Component value) {
         return Component.text(label + ": ", NamedTextColor.WHITE)
+                .append(value == null ? Component.empty() : value);
+    }
+
+    private Component composeLine(String emoji, TextColor emojiColor, String label, Component value) {
+        return Component.text(emoji + " ", emojiColor)
+                .append(Component.text(label + ": ", NamedTextColor.WHITE))
                 .append(value == null ? Component.empty() : value);
     }
 

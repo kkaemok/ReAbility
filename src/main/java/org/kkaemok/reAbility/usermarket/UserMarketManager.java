@@ -276,6 +276,7 @@ public class UserMarketManager implements Listener {
         }
 
         pendingItems.put(player.getUniqueId(), item.clone());
+        saveToDisk();
         top.setItem(SELL_ITEM_SLOT, null);
         holder.markConfirmed();
         player.closeInventory();
@@ -438,35 +439,52 @@ public class UserMarketManager implements Listener {
 
         this.shopConfig = YamlConfiguration.loadConfiguration(shopFile);
         this.listings.clear();
+        this.pendingItems.clear();
         this.nextListingId = Math.max(1L, shopConfig.getLong("next-id", 1L));
 
-        ConfigurationSection section = shopConfig.getConfigurationSection("listings");
-        if (section == null) return;
+        ConfigurationSection listingsSection = shopConfig.getConfigurationSection("listings");
+        if (listingsSection != null) {
+            for (String key : listingsSection.getKeys(false)) {
+                long id;
+                try {
+                    id = Long.parseLong(key);
+                } catch (NumberFormatException ex) {
+                    continue;
+                }
 
-        for (String key : section.getKeys(false)) {
-            long id;
-            try {
-                id = Long.parseLong(key);
-            } catch (NumberFormatException ex) {
-                continue;
+                String path = "listings." + key + ".";
+                String sellerRaw = shopConfig.getString(path + "seller");
+                ItemStack item = shopConfig.getItemStack(path + "item");
+                long price = shopConfig.getLong(path + "price", 0L);
+                long createdAt = shopConfig.getLong(path + "created-at", System.currentTimeMillis());
+                if (sellerRaw == null || item == null || item.getType().isAir() || price <= 0L) continue;
+
+                UUID sellerUuid;
+                try {
+                    sellerUuid = UUID.fromString(sellerRaw);
+                } catch (IllegalArgumentException ex) {
+                    continue;
+                }
+
+                listings.put(id, new UserListing(id, sellerUuid, item.clone(), price, createdAt));
+                nextListingId = Math.max(nextListingId, id + 1L);
             }
+        }
 
-            String path = "listings." + key + ".";
-            String sellerRaw = shopConfig.getString(path + "seller");
-            ItemStack item = shopConfig.getItemStack(path + "item");
-            long price = shopConfig.getLong(path + "price", 0L);
-            long createdAt = shopConfig.getLong(path + "created-at", System.currentTimeMillis());
-            if (sellerRaw == null || item == null || item.getType().isAir() || price <= 0L) continue;
+        ConfigurationSection pendingSection = shopConfig.getConfigurationSection("pending");
+        if (pendingSection == null) return;
 
-            UUID sellerUuid;
+        for (String key : pendingSection.getKeys(false)) {
+            UUID playerUuid;
             try {
-                sellerUuid = UUID.fromString(sellerRaw);
+                playerUuid = UUID.fromString(key);
             } catch (IllegalArgumentException ex) {
                 continue;
             }
 
-            listings.put(id, new UserListing(id, sellerUuid, item.clone(), price, createdAt));
-            nextListingId = Math.max(nextListingId, id + 1L);
+            ItemStack item = sanitizeItem(shopConfig.getItemStack("pending." + key + ".item"));
+            if (item == null) continue;
+            pendingItems.put(playerUuid, item);
         }
     }
 
@@ -476,12 +494,17 @@ public class UserMarketManager implements Listener {
         }
         shopConfig.set("next-id", nextListingId);
         shopConfig.set("listings", null);
+        shopConfig.set("pending", null);
         for (UserListing listing : listings.values()) {
             String path = "listings." + listing.id() + ".";
             shopConfig.set(path + "seller", listing.sellerUuid().toString());
             shopConfig.set(path + "price", listing.price());
             shopConfig.set(path + "item", listing.item());
             shopConfig.set(path + "created-at", listing.createdAt());
+        }
+        for (Map.Entry<UUID, ItemStack> entry : pendingItems.entrySet()) {
+            String path = "pending." + entry.getKey() + ".";
+            shopConfig.set(path + "item", entry.getValue());
         }
 
         try {

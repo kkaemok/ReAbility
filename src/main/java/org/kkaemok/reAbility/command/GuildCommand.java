@@ -6,14 +6,17 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
 import org.kkaemok.reAbility.guild.GuildManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class GuildCommand implements CommandExecutor, TabCompleter {
+    private static final int GUILD_CREATE_DIAMOND_COST = 100;
 
     private final GuildManager guildManager;
 
@@ -49,8 +52,9 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("이미 존재하는 길드명입니다.");
                     return true;
                 }
-                if (guildManager.consumeItem(player, Material.DIAMOND, 100)) {
-                    guildManager.createGuild(player, args[1], args[2]);
+                if (guildManager.consumeItem(player, Material.DIAMOND, GUILD_CREATE_DIAMOND_COST)) {
+                    guildManager.createGuild(player, args[1], args[2],
+                            () -> refundGuildCreateCost(player, GUILD_CREATE_DIAMOND_COST));
                 } else {
                     player.sendMessage("다이아몬드 100개가 부족합니다.");
                 }
@@ -116,6 +120,18 @@ public class GuildCommand implements CommandExecutor, TabCompleter {
             String name = (costMat == Material.DIAMOND) ? "다이아몬드" : "네더라이트 주괴";
             player.sendMessage("비용이 부족합니다! (" + name + " " + amount + "개 필요)");
         }
+    }
+
+    private void refundGuildCreateCost(Player player, int amount) {
+        Map<Integer, ItemStack> overflow = player.getInventory().addItem(new ItemStack(Material.DIAMOND, amount));
+        if (overflow.isEmpty()) {
+            player.sendMessage("[길드] 생성 실패로 다이아몬드 " + amount + "개가 환불되었습니다.");
+            return;
+        }
+        for (ItemStack drop : overflow.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), drop);
+        }
+        player.sendMessage("[길드] 생성 실패로 다이아몬드 " + amount + "개를 환불했고, 초과분은 바닥에 드롭되었습니다.");
     }
 
     private void sendHelp(Player p) {

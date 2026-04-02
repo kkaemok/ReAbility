@@ -16,7 +16,6 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
@@ -26,7 +25,9 @@ import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
 import org.kkaemok.reAbility.utils.SkillParticles;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,8 +35,9 @@ public class Beauty extends AbilityBase {
     private final ReAbility plugin;
     private final GuildManager guildManager;
     private final Map<UUID, Long> scentCooldown = new HashMap<>();
+    private final Map<UUID, BukkitTask> passiveTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> charmTasks = new HashMap<>();
-    private BukkitRunnable passiveTask;
+    private final Map<UUID, UUID> charmOwners = new HashMap<>();
 
     public Beauty(ReAbility plugin) {
         this.plugin = plugin;
@@ -64,16 +66,37 @@ public class Beauty extends AbilityBase {
 
     @Override
     public void onDeactivate(Player player) {
-        if (passiveTask != null) passiveTask.cancel();
-        charmTasks.values().forEach(BukkitTask::cancel);
-        charmTasks.clear();
+        BukkitTask passiveTask = passiveTasks.remove(player.getUniqueId());
+        if (passiveTask != null) {
+            passiveTask.cancel();
+        }
+
+        List<UUID> toCancel = new ArrayList<>();
+        UUID ownerId = player.getUniqueId();
+        for (Map.Entry<UUID, UUID> entry : charmOwners.entrySet()) {
+            if (ownerId.equals(entry.getValue())) {
+                toCancel.add(entry.getKey());
+            }
+        }
+        for (UUID targetId : toCancel) {
+            cancelCharm(targetId);
+        }
     }
 
     private void startPassiveTask(Player beauty) {
-        passiveTask = new BukkitRunnable() {
+        BukkitTask existing = passiveTasks.remove(beauty.getUniqueId());
+        if (existing != null) {
+            existing.cancel();
+        }
+
+        BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
-                if (!beauty.isOnline()) {
+                if (!beauty.isOnline() || !isHasAbility(beauty)) {
+                    BukkitTask current = passiveTasks.get(beauty.getUniqueId());
+                    if (current != null && current.getTaskId() == this.getTaskId()) {
+                        passiveTasks.remove(beauty.getUniqueId());
+                    }
                     this.cancel();
                     return;
                 }
@@ -94,8 +117,8 @@ public class Beauty extends AbilityBase {
                     }
                 }
             }
-        };
-        passiveTask.runTaskTimer(plugin, 0L, 5L);
+        }.runTaskTimer(plugin, 0L, 5L);
+        passiveTasks.put(beauty.getUniqueId(), task);
     }
 
     private void applyBuffs(Player beauty, Player target) {
@@ -174,6 +197,7 @@ public class Beauty extends AbilityBase {
 
     private void startCharm(Player beauty, Player target) {
         cancelCharm(target.getUniqueId());
+        charmOwners.put(target.getUniqueId(), beauty.getUniqueId());
 
         BukkitRunnable runnable = new BukkitRunnable() {
             int ticks = 0;
@@ -207,6 +231,7 @@ public class Beauty extends AbilityBase {
     private void cancelCharm(UUID targetId) {
         BukkitTask task = charmTasks.remove(targetId);
         if (task != null) task.cancel();
+        charmOwners.remove(targetId);
         Player target = Bukkit.getPlayer(targetId);
         if (target != null) {
             target.removePotionEffect(PotionEffectType.WEAKNESS);

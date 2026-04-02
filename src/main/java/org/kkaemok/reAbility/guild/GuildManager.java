@@ -149,16 +149,23 @@ public class GuildManager {
     }
 
     public void createGuild(Player owner, String name, String colorName) {
+        createGuild(owner, name, colorName, null);
+    }
+
+    public void createGuild(Player owner, String name, String colorName, Runnable onFailure) {
         String guildName = name == null ? "" : name.trim();
         if (guildName.isEmpty()) {
+            runFailureCallback(onFailure);
             owner.sendMessage(parseColor("<red>[!] 길드 이름을 입력해 주세요.</red>"));
             return;
         }
         if (getGuildByMember(owner.getUniqueId()) != null) {
+            runFailureCallback(onFailure);
             owner.sendMessage(parseColor("<red>[!] 이미 길드에 소속되어 있습니다."));
             return;
         }
         if (hasGuildName(guildName)) {
+            runFailureCallback(onFailure);
             owner.sendMessage(parseColor("<red>[!] 이미 존재하는 길드명입니다.</red>"));
             return;
         }
@@ -170,9 +177,15 @@ public class GuildManager {
             String suffix = " §f[" + colorCode + guildName + "§f]";
             group.data().clear(n -> n.getType().name().equals("SUFFIX"));
             group.data().add(SuffixNode.builder(suffix, 100).build());
-            lp.getGroupManager().saveGroup(group);
+            lp.getGroupManager().saveGroup(group).exceptionally(ex -> {
+                plugin.getLogger().log(Level.WARNING, "[ReAbility] Failed to save guild group: " + group.getName(), ex);
+                plugin.getLogger().log(Level.WARNING, "[ReAbility] 湲몃뱶 洹몃９ ??λ븯湲??ㅽ뙣: " + group.getName(), ex);
+                return null;
+            });
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (hasGuildName(guildName)) {
+                    deleteGuildGroup(group);
+                    runFailureCallback(onFailure);
                     owner.sendMessage(parseColor("<red>[!] 동일한 길드명이 이미 등록되었습니다.</red>"));
                     return;
                 }
@@ -183,6 +196,7 @@ public class GuildManager {
             });
         }).exceptionally(ex -> {
             plugin.getLogger().log(Level.SEVERE, "[ReAbility] 길드 생성 중 오류 발생", ex);
+            Bukkit.getScheduler().runTask(plugin, () -> runFailureCallback(onFailure));
             Bukkit.getScheduler().runTask(plugin, () ->
                     owner.sendMessage(parseColor("<red>[!] 길드 생성에 실패했습니다.</red>")));
             return null;
@@ -328,8 +342,11 @@ public class GuildManager {
         if (guild.master.equals(player.getUniqueId())) {
             Set<UUID> memberUuids = getGuildMemberUuids(groupId);
             memberUuids.add(player.getUniqueId());
+            boolean failed = false;
             for (UUID memberUuid : memberUuids) {
-                removeUserFromGuild(memberUuid, groupId);
+                if (!removeUserFromGuildBlocking(memberUuid, groupId)) {
+                    failed = true;
+                }
                 guildChatMode.remove(memberUuid);
             }
 
@@ -339,14 +356,27 @@ public class GuildManager {
 
             Group group = lp.getGroupManager().getGroup(groupId);
             if (group != null) {
-                lp.getGroupManager().deleteGroup(group);
+                try {
+                    lp.getGroupManager().deleteGroup(group).join();
+                } catch (Exception e) {
+                    failed = true;
+                    plugin.getLogger().log(Level.WARNING, "[ReAbility] 湲몃뱶 洹몃９ ??젣 ?ㅽ뙣: " + groupId, e);
+                }
             }
 
             player.sendMessage(parseColor("<yellow>[!] 길드장이 탈퇴하여 길드가 삭제되었습니다.</yellow>"));
             return;
         }
 
-        removeUserFromGuild(player.getUniqueId(), groupId);
+        boolean removed = removeUserFromGuildBlocking(player.getUniqueId(), groupId);
+        if (!removed) {
+            player.sendMessage(parseColor("<red>[!] LuckPerms 그룹 상속 제거에 실패했습니다. 관리자에게 문의해주세요.</red>"));
+            return;
+        }
+        if (false && !removed) {
+            player.sendMessage(parseColor("<red>[!] luckperms ?곹띁 ?쒓굅???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?댁＜?몄슂.</red>"));
+            return;
+        }
         player.sendMessage(parseColor("<green>길드에서 탈퇴했습니다.</green>"));
     }
 
@@ -354,10 +384,34 @@ public class GuildManager {
         lp.getUserManager().modifyUser(uuid, user -> user.data().add(InheritanceNode.builder(group).build()));
     }
 
-    private void removeUserFromGuild(UUID uuid, String groupId) {
-        lp.getUserManager().modifyUser(uuid, user -> user.data().clear(node ->
-                node instanceof InheritanceNode inheritanceNode
-                        && inheritanceNode.getGroupName().equalsIgnoreCase(groupId)));
+    private boolean removeUserFromGuildBlocking(UUID uuid, String groupId) {
+        try {
+            User user = lp.getUserManager().loadUser(uuid).join();
+            user.data().clear(node ->
+                    node instanceof InheritanceNode inheritanceNode
+                            && inheritanceNode.getGroupName().equalsIgnoreCase(groupId));
+            lp.getUserManager().saveUser(user).join();
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[ReAbility] luckperms ?곹띁 ?쒓굅 ?ㅽ뙣: " + uuid + ", " + groupId, e);
+            return false;
+        }
+    }
+
+    private void deleteGuildGroup(Group group) {
+        lp.getGroupManager().deleteGroup(group).exceptionally(ex -> {
+            plugin.getLogger().log(Level.WARNING, "[ReAbility] 湲몃뱶 洹몃９ ??젣 ?ㅽ뙣: " + group.getName(), ex);
+            return null;
+        });
+    }
+
+    private void runFailureCallback(Runnable callback) {
+        if (callback == null) return;
+        try {
+            callback.run();
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[ReAbility] 湲몃뱶 ?ㅽ뙣 肄쒕갚 ?ㅽ뻾 以??ㅻ쪟", e);
+        }
     }
 
     private GuildData findGuildByName(String guildName) {

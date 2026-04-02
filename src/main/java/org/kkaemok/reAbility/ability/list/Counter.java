@@ -71,12 +71,20 @@ public class Counter extends AbilityBase {
     }
 
     private void startTask(Player player) {
+        BukkitTask existing = tasks.remove(player.getUniqueId());
+        if (existing != null) {
+            existing.cancel();
+        }
+
         BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!player.isOnline() || !isHasAbility(player)) {
-                    BukkitTask current = tasks.remove(player.getUniqueId());
-                    if (current != null) current.cancel();
+                    BukkitTask current = tasks.get(player.getUniqueId());
+                    if (current != null && current.getTaskId() == this.getTaskId()) {
+                        tasks.remove(player.getUniqueId());
+                    }
+                    this.cancel();
                     return;
                 }
 
