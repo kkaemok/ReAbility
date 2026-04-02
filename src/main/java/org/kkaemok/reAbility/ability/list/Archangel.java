@@ -26,6 +26,8 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
@@ -51,6 +53,7 @@ public class Archangel extends AbilityBase {
     private final Map<UUID, Long> wingbeatActiveUntil = new HashMap<>();
     private final Map<UUID, Boolean> previousAllowFlight = new HashMap<>();
     private final Map<UUID, Boolean> previousFlying = new HashMap<>();
+    private final Map<UUID, BukkitTask> soulFlightTasks = new HashMap<>();
 
     public Archangel(ReAbility plugin) {
         this.plugin = plugin;
@@ -84,12 +87,10 @@ public class Archangel extends AbilityBase {
     @Override
     public void onDeactivate(Player player) {
         UUID uuid = player.getUniqueId();
+        endSoulFlightLock(player, uuid);
         pendingDonor.remove(uuid);
-        noAttackUntil.remove(uuid);
         respawnLocations.remove(uuid);
         wingbeatActiveUntil.remove(uuid);
-        previousAllowFlight.remove(uuid);
-        previousFlying.remove(uuid);
 
         removeArchangelHealth(player);
         player.removePotionEffect(PotionEffectType.REGENERATION);
@@ -175,33 +176,7 @@ public class Archangel extends AbilityBase {
                 UUID uuid = player.getUniqueId();
                 long noAttackMs = plugin.getAbilityConfigManager()
                         .getLong(getName(), "skills.soul.no-attack-ms", 10000L);
-                long noAttackTicks = Math.max(1L, noAttackMs / 50L);
-                previousAllowFlight.put(uuid, player.getAllowFlight());
-                previousFlying.put(uuid, player.isFlying());
-                player.setAllowFlight(true);
-                player.setFlying(true);
-                noAttackUntil.put(uuid, System.currentTimeMillis() + noAttackMs);
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (!player.isOnline()) return;
-                    noAttackUntil.remove(uuid);
-
-                    Boolean restoreAllow = previousAllowFlight.remove(uuid);
-                    Boolean restoreFlying = previousFlying.remove(uuid);
-                    boolean creativeLike = player.getGameMode() == GameMode.CREATIVE
-                            || player.getGameMode() == GameMode.SPECTATOR;
-                    if (creativeLike) return;
-
-                    if (restoreAllow != null) {
-                        player.setAllowFlight(restoreAllow);
-                    } else {
-                        player.setAllowFlight(false);
-                    }
-                    if (restoreFlying != null && restoreFlying && player.getAllowFlight()) {
-                        player.setFlying(true);
-                    } else {
-                        player.setFlying(false);
-                    }
-                }, noAttackTicks);
+                startSoulFlightLock(player, uuid, noAttackMs);
             }
         }
 
@@ -248,33 +223,34 @@ public class Archangel extends AbilityBase {
                 player.sendMessage(Component.text("심판의 창 쿨타임입니다.", NamedTextColor.RED));
                 return;
             }
+            double spearRange = plugin.getAbilityConfigManager()
+                    .getDouble(getName(), "skills.spear.range", 22.0);
+            Player victim = getSpearVictim(player, spearRange);
+            if (victim == null) {
+                player.sendMessage(Component.text("플레이어가 없습니다.", NamedTextColor.RED));
+                return;
+            }
+
             long cooldownMs = plugin.getAbilityConfigManager()
                     .getLong(getName(), "skills.spear.cooldown-ms", 180000L);
             spearCooldown.put(player.getUniqueId(), now + cooldownMs);
 
-            Location strikeLoc = player.getLocation().add(player.getLocation().getDirection().normalize().multiply(10));
+            Location strikeLoc = victim.getLocation().clone().add(0, 1.0, 0);
             SkillParticles.archangelSpear(player, strikeLoc);
             boolean killed = false;
 
-            for (Player target : Bukkit.getOnlinePlayers()) {
-                if (target.equals(player)) continue;
-                if (!target.getWorld().equals(player.getWorld())) continue;
-                if (isSameGuild(player, target)) continue;
-                if (target.getLocation().distanceSquared(strikeLoc) > 144) continue;
-
-                double hp = target.getHealth();
-                if (hp <= 10.0) {
-                    target.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 5));
-                    target.setHealth(0.0);
-                    spearWeaknessUntil.put(target.getUniqueId(), now + 600000);
-                    killed = true;
-                } else {
-                    target.setHealth(hp - 10.0);
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 1200, 0, false, false));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 1200, 3, false, false));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 1200, 0, false, false));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 1200, 1, false, false));
-                }
+            double hp = victim.getHealth();
+            if (hp <= 10.0) {
+                victim.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 5));
+                victim.setHealth(0.0);
+                spearWeaknessUntil.put(victim.getUniqueId(), now + 600000);
+                killed = true;
+            } else {
+                victim.setHealth(hp - 10.0);
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 1200, 0, false, false));
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 1200, 3, false, false));
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 1200, 0, false, false));
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 1200, 1, false, false));
             }
 
             if (killed) {
@@ -394,6 +370,67 @@ public class Archangel extends AbilityBase {
         return true;
     }
 
+    private void startSoulFlightLock(Player player, UUID uuid, long lockMillis) {
+        long effectiveLockMs = Math.max(50L, lockMillis);
+        long lockEnd = System.currentTimeMillis() + effectiveLockMs;
+        long lockTicks = Math.max(1L, effectiveLockMs / 50L);
+
+        previousAllowFlight.put(uuid, player.getAllowFlight());
+        previousFlying.put(uuid, player.isFlying());
+        noAttackUntil.put(uuid, lockEnd);
+        cancelSoulFlightTask(uuid);
+
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead() || !isHasAbility(player)) {
+                    noAttackUntil.remove(uuid);
+                    cancelSoulFlightTask(uuid);
+                    return;
+                }
+
+                Long until = noAttackUntil.get(uuid);
+                if (until == null || System.currentTimeMillis() > until) {
+                    cancelSoulFlightTask(uuid);
+                    return;
+                }
+
+                if (!player.getAllowFlight()) {
+                    player.setAllowFlight(true);
+                }
+                if (!player.isFlying()) {
+                    player.setFlying(true);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+        soulFlightTasks.put(uuid, task);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> endSoulFlightLock(player, uuid), lockTicks);
+    }
+
+    private void endSoulFlightLock(Player player, UUID uuid) {
+        noAttackUntil.remove(uuid);
+        cancelSoulFlightTask(uuid);
+
+        Boolean restoreAllow = previousAllowFlight.remove(uuid);
+        Boolean restoreFlying = previousFlying.remove(uuid);
+        if (!player.isOnline()) return;
+
+        boolean creativeLike = player.getGameMode() == GameMode.CREATIVE
+                || player.getGameMode() == GameMode.SPECTATOR;
+        if (creativeLike) return;
+
+        player.setAllowFlight(restoreAllow != null && restoreAllow);
+        player.setFlying(restoreFlying != null && restoreFlying && player.getAllowFlight());
+    }
+
+    private void cancelSoulFlightTask(UUID uuid) {
+        BukkitTask task = soulFlightTasks.remove(uuid);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
     private Player getAttacker(Entity damager) {
         if (damager instanceof Player player) return player;
         if (damager instanceof Projectile projectile) {
@@ -403,8 +440,38 @@ public class Archangel extends AbilityBase {
         return null;
     }
 
+    private Player getSpearVictim(Player caster, double range) {
+        RayTraceResult trace = caster.getWorld().rayTraceEntities(
+                caster.getEyeLocation(),
+                caster.getEyeLocation().getDirection().normalize(),
+                Math.max(1.0, range),
+                1.2,
+                entity -> entity instanceof Player target
+                        && !target.equals(caster)
+                        && !target.isDead()
+                        && target.getGameMode() != GameMode.SPECTATOR
+                        && caster.hasLineOfSight(target)
+                        && !isSameGuild(caster, target)
+        );
+        if (trace == null || !(trace.getHitEntity() instanceof Player target)) {
+            return null;
+        }
+        return target;
+    }
+
     private boolean isNetheriteSpear(Material type) {
-        return type == Material.NETHERITE_SPEAR;
+        if (type == null || type.isAir()) return false;
+        Material spearMat = getConfiguredSpearMaterial();
+        if (type == spearMat) return true;
+        return type == Material.TRIDENT && "NETHERITE_SPEAR".equals(spearMat.name());
+    }
+
+    private Material getConfiguredSpearMaterial() {
+        Material defaultMat = Material.matchMaterial("NETHERITE_SPEAR");
+        if (defaultMat == null) {
+            defaultMat = Material.TRIDENT;
+        }
+        return plugin.getAbilityConfigManager().getMaterial(getName(), "skills.spear.item", defaultMat);
     }
 
     private boolean isSameGuild(Player p1, Player p2) {
