@@ -176,7 +176,7 @@ public class Valkyrie extends AbilityBase {
                     target.setVelocity(dir.normalize().multiply(0.4));
 
                     if (tick % 20 == 0 && target.getLocation().distanceSquared(center) <= 9) {
-                        target.damage(35.0, player);
+                        target.damage(25.0, player);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 100, 1, false, false));
                         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 4, false, false));
                     }
@@ -201,7 +201,7 @@ public class Valkyrie extends AbilityBase {
         AttributeInstance attr = player.getAttribute(attrType);
         if (attr == null) return;
         removeAxeSpeed(player);
-        attr.addModifier(new AttributeModifier(getAxeSpeedKey(), 0.45, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
+        attr.addModifier(new AttributeModifier(getAxeSpeedKey(), -0.45, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
     }
 
     private void removeAxeSpeed(Player player) {

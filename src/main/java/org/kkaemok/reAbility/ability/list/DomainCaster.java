@@ -243,7 +243,7 @@ public class DomainCaster extends AbilityBase {
         int baseRadius = plugin.getAbilityConfigManager()
                 .getInt(getName(), "stats.base-radius", 200);
         int expandedRadius = plugin.getAbilityConfigManager()
-                .getInt(getName(), "stats.expanded-radius", 2000);
+                .getInt(getName(), "stats.expanded-radius", 500);
         int radius = isExpanded(player) ? expandedRadius : baseRadius;
 
         return player.getLocation().distanceSquared(center) <= (double) radius * radius;
@@ -257,7 +257,7 @@ public class DomainCaster extends AbilityBase {
         int baseRadius = plugin.getAbilityConfigManager()
                 .getInt(getName(), "stats.base-radius", 200);
         int expandedRadius = plugin.getAbilityConfigManager()
-                .getInt(getName(), "stats.expanded-radius", 2000);
+                .getInt(getName(), "stats.expanded-radius", 500);
         int radius = isExpanded(owner) ? expandedRadius : baseRadius;
 
         return location.distanceSquared(center) <= (double) radius * radius;

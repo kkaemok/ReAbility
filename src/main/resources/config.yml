@@ -34,7 +34,7 @@ teleport-settings:
   tpa-cooldown-default: 180
   tpa-cooldown-homelover: 60
   rtp-cooldown-default: 600
-  rtp-cooldown-space-lord: 60
+  rtp-cooldown-space-lord: 0
   tpa-request-timeout-seconds: 60
 
 sneak-skill:

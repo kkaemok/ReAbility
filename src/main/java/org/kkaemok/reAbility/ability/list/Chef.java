@@ -75,7 +75,8 @@ public class Chef extends AbilityBase {
     @Override
     public void onSneakSkill(Player player) {
         long now = System.currentTimeMillis();
-        if (now < overeatCooldown.getOrDefault(player.getUniqueId(), 0L)) {
+        boolean eaterSynergy = hasEaterInGuild(player);
+        if (!eaterSynergy && now < overeatCooldown.getOrDefault(player.getUniqueId(), 0L)) {
             player.sendMessage(Component.text("대식가 쿨타임입니다.", NamedTextColor.RED));
             return;
         }
@@ -85,12 +86,16 @@ public class Chef extends AbilityBase {
 
         if (!cost.consumeFromInventory(player)) return;
         long cooldownMs = plugin.getAbilityConfigManager()
-                .getLong(getName(), "skills.overeat.cooldown-ms", 600000L);
+                .getLong(getName(), "skills.overeat.cooldown-ms", 60000L);
         long durationMs = plugin.getAbilityConfigManager()
-                .getLong(getName(), "skills.overeat.duration-ms", 600000L);
-        overeatCooldown.put(player.getUniqueId(), now + cooldownMs);
+                .getLong(getName(), "skills.overeat.duration-ms", 60000L);
+        if (eaterSynergy) {
+            overeatCooldown.remove(player.getUniqueId());
+        } else {
+            overeatCooldown.put(player.getUniqueId(), now + cooldownMs);
+        }
         overeatUntil.put(player.getUniqueId(), now + durationMs);
-        player.sendMessage(Component.text("[!] 대식가 발동! 10분간 포만 상태에서도 섭취 가능합니다.", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("[!] 대식가 발동! 1분간 포만 상태에서도 섭취 가능합니다.", NamedTextColor.YELLOW));
         SkillParticles.chefOvereat(player);
     }
 
@@ -148,14 +153,14 @@ public class Chef extends AbilityBase {
                 case COOKED_CHICKEN -> target.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 200, 4, false, false));
                 case COOKED_MUTTON -> {
                     healthBonusUntil.put(target.getUniqueId(), now + 120000);
-                    applyHealthBonus(target, 60.0);
+                    applyHealthBonus(target, 40.0);
                 }
-                case COOKED_PORKCHOP -> explosionImmuneUntil.put(target.getUniqueId(), now + 300000);
+                case COOKED_PORKCHOP -> explosionImmuneUntil.put(target.getUniqueId(), now + 120000);
                 case ENCHANTED_GOLDEN_APPLE -> {
                     target.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 2400, 2, false, false));
                     target.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 2400, 1, false, false));
                     healthBonusUntil.put(target.getUniqueId(), now + 120000);
-                    applyHealthBonus(target, 60.0);
+                    applyHealthBonus(target, 40.0);
                     explosionImmuneUntil.put(target.getUniqueId(), now + 120000);
                 }
                 default -> {}
@@ -168,7 +173,7 @@ public class Chef extends AbilityBase {
         Long until = overeatUntil.get(chef.getUniqueId());
         if (until != null && now <= until) return true;
         if (until != null && now > until) overeatUntil.remove(chef.getUniqueId());
-        return hasEaterInGuild(chef);
+        return false;
     }
 
     private boolean hasEaterInGuild(Player chef) {

@@ -383,7 +383,7 @@ public class TeleportManager implements Listener {
     private long getRtpCooldown(Player player) {
         String ability = abilityManager.getPlayerData(player.getUniqueId()).getAbilityName();
         long defaultSeconds = plugin.getConfig().getLong("teleport-settings.rtp-cooldown-default", 600L);
-        long spaceSeconds = plugin.getConfig().getLong("teleport-settings.rtp-cooldown-space-lord", 60L);
+        long spaceSeconds = plugin.getConfig().getLong("teleport-settings.rtp-cooldown-space-lord", 0L);
         long seconds = "SPACE_RULER".equals(ability) ? spaceSeconds : defaultSeconds;
         return Math.max(0L, seconds) * 1000L;
     }

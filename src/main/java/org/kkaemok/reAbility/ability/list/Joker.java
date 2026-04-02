@@ -12,7 +12,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityResurrectEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
@@ -24,6 +26,7 @@ import org.kkaemok.reAbility.ability.AbilityGrade;
 import org.kkaemok.reAbility.ability.SkillCost;
 import org.kkaemok.reAbility.guild.GuildData;
 import org.kkaemok.reAbility.guild.GuildManager;
+import org.kkaemok.reAbility.integration.NicknamesBridge;
 import org.kkaemok.reAbility.utils.AbilityTags;
 import org.kkaemok.reAbility.utils.JokerNameRegistry;
 import org.kkaemok.reAbility.utils.SkillParticles;
@@ -128,9 +131,11 @@ public class Joker extends AbilityBase {
         currentFakeNames.put(joker.getUniqueId(), fakeName);
         JokerNameRegistry.setFakeName(joker.getUniqueId(), fakeName);
 
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            if (viewer.equals(joker)) continue;
-            updateJokerNametag(joker, viewer, fakeName);
+        if (!NicknamesBridge.applyJokerNickname(joker, fakeName)) {
+            for (Player viewer : Bukkit.getOnlinePlayers()) {
+                if (viewer.equals(joker)) continue;
+                updateJokerNametag(joker, viewer, fakeName);
+            }
         }
         joker.sendMessage(Component.text("[!] 신분 위장 완료. 현재 닉네임: " + fakeName, NamedTextColor.LIGHT_PURPLE));
     }
@@ -177,9 +182,11 @@ public class Joker extends AbilityBase {
     private void resetIdentity(Player joker) {
         currentFakeNames.remove(joker.getUniqueId());
         JokerNameRegistry.clearFakeName(joker.getUniqueId());
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            if (viewer.equals(joker)) continue;
-            updateJokerNametag(joker, viewer, joker.getName());
+        if (!NicknamesBridge.clearJokerNickname(joker)) {
+            for (Player viewer : Bukkit.getOnlinePlayers()) {
+                if (viewer.equals(joker)) continue;
+                updateJokerNametag(joker, viewer, joker.getName());
+            }
         }
     }
 
@@ -190,7 +197,9 @@ public class Joker extends AbilityBase {
             Player joker = Bukkit.getPlayer(entry.getKey());
             if (joker == null || !joker.isOnline()) continue;
             if (joker.equals(viewer)) continue;
-            updateJokerNametag(joker, viewer, entry.getValue());
+            if (!NicknamesBridge.applyJokerNickname(joker, entry.getValue())) {
+                updateJokerNametag(joker, viewer, entry.getValue());
+            }
         }
     }
 
@@ -198,15 +207,6 @@ public class Joker extends AbilityBase {
     public void onChat(AsyncChatEvent event) {
         Player sender = event.getPlayer();
         String rawMessage = PlainTextComponentSerializer.plainText().serialize(event.message());
-
-        if (isHasAbility(sender) && currentFakeNames.containsKey(sender.getUniqueId())) {
-            String fakeName = currentFakeNames.get(sender.getUniqueId());
-            event.renderer((source, sourceDisplayName, message, viewer) ->
-                    Component.text().append(Component.text(fakeName, NamedTextColor.WHITE))
-                            .append(Component.text(": "))
-                            .append(message).build()
-            );
-        }
 
         if (!guildManager.isGuildChatMode(sender.getUniqueId())) return;
         GuildData senderGuild = guildManager.getGuildByMember(sender.getUniqueId());
@@ -223,6 +223,42 @@ public class Joker extends AbilityBase {
             } else {
                 spyEndTime.remove(uuid);
             }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWhisperCommand(PlayerCommandPreprocessEvent event) {
+        String rawCommand = event.getMessage();
+        if (rawCommand == null || rawCommand.length() <= 1 || rawCommand.charAt(0) != '/') return;
+
+        String[] split = rawCommand.substring(1).split("\\s+", 3);
+        if (split.length < 3) return;
+
+        String label = split[0].toLowerCase(Locale.ROOT);
+        int namespaceIndex = label.indexOf(':');
+        if (namespaceIndex >= 0 && namespaceIndex + 1 < label.length()) {
+            label = label.substring(namespaceIndex + 1);
+        }
+        if (!isWhisperCommand(label)) return;
+
+        Player sender = event.getPlayer();
+        Player receiver = NicknamesBridge.findOnlinePlayer(split[1]);
+        if (receiver == null || receiver.equals(sender)) return;
+
+        String whisperMessage = split[2];
+        spyEndTime.forEach((uuid, endTime) -> {
+            if (System.currentTimeMillis() >= endTime) {
+                spyEndTime.remove(uuid);
+                return;
+            }
+
+            Player joker = Bukkit.getPlayer(uuid);
+            if (joker == null || !joker.isOnline() || !isHasAbility(joker)) return;
+            if (joker.equals(sender) || joker.equals(receiver)) return;
+            if (isSameGuild(joker, sender) || isSameGuild(joker, receiver)) return;
+
+            joker.sendMessage(Component.text("[Spy][Whisper] " + sender.getName() + " -> "
+                    + receiver.getName() + ": " + whisperMessage, NamedTextColor.GRAY));
         });
     }
 
@@ -330,6 +366,14 @@ public class Joker extends AbilityBase {
     private void broadcastSkill(Player player, String skillName) {
         Bukkit.broadcast(Component.text("[S] 조커 " + player.getName() + "이(가) " + skillName + "을 사용했습니다!",
                 NamedTextColor.LIGHT_PURPLE));
+    }
+
+    private boolean isWhisperCommand(String label) {
+        return "msg".equals(label)
+                || "tell".equals(label)
+                || "w".equals(label)
+                || "whisper".equals(label)
+                || "m".equals(label);
     }
 
     private boolean isHasAbility(Player player) {
