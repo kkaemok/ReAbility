@@ -15,11 +15,13 @@ import java.util.List;
 public class TicketItemManager {
     private final NamespacedKey ticketKey;
     private final NamespacedKey keepDaysKey;
+    private final NamespacedKey keepPermanentKey;
     private final NamespacedKey infiniteFireworkKey;
 
     public TicketItemManager(ReAbility plugin) {
         this.ticketKey = new NamespacedKey(plugin, "reroll_ticket_type");
         this.keepDaysKey = new NamespacedKey(plugin, "ability_keep_days");
+        this.keepPermanentKey = new NamespacedKey(plugin, "ability_keep_permanent");
         this.infiniteFireworkKey = new NamespacedKey(plugin, "infinite_firework");
     }
 
@@ -42,6 +44,18 @@ public class TicketItemManager {
             meta.displayName(Component.text("능력 유지권(" + days + "일)", NamedTextColor.YELLOW));
             meta.lore(List.of(Component.text("우클릭하면 현재 능력 기간을 연장합니다.", NamedTextColor.GRAY)));
             meta.getPersistentDataContainer().set(keepDaysKey, PersistentDataType.INTEGER, days);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public ItemStack createKeepPermanentTicket() {
+        ItemStack item = new ItemStack(Material.PAPER);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("능력 유지권(영구)", NamedTextColor.YELLOW));
+            meta.lore(List.of(Component.text("우클릭하면 현재 능력 기간이 영구로 변경됩니다.", NamedTextColor.GRAY)));
+            meta.getPersistentDataContainer().set(keepPermanentKey, PersistentDataType.BYTE, (byte) 1);
             item.setItemMeta(meta);
         }
         return item;

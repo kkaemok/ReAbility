@@ -1,5 +1,7 @@
 package org.kkaemok.reAbility;
 
+import org.bstats.bukkit.Metrics;
+import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
@@ -42,6 +44,8 @@ import java.util.Objects;
 import java.util.logging.Level;
 
 public class ReAbility extends JavaPlugin {
+    private static final int BSTATS_PLUGIN_ID = 30617;
+
     private AbilityManager abilityManager;
     private AbilityConfigManager abilityConfigManager;
     private GuildManager guildManager;
@@ -82,6 +86,8 @@ public class ReAbility extends JavaPlugin {
             new AbilityUpdateTask(abilityManager).runTaskTimer(this, 100L, 1200L);
             new PlaytimeRewardTask(abilityManager).runTaskTimer(this, 1200L, 1200L);
             scoreboard.start();
+            Metrics metrics = new Metrics(this, BSTATS_PLUGIN_ID);
+            metrics.addCustomChart(new SimplePie("chart_id", () -> "My value"));
 
             getLogger().info("모든 시스템이 활성화되었습니다.");
         } catch (Exception e) {

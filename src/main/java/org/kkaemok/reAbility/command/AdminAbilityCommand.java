@@ -111,16 +111,9 @@ public class AdminAbilityCommand implements CommandExecutor, TabCompleter {
 
         String value = args[2];
         if (value.equalsIgnoreCase(PERMANENT)) {
-            PlayerData data = abilityManager.getPlayerData(target.getUniqueId());
-            if (data.getAbilityName() == null) {
-                sender.sendMessage("대상에게 현재 능력이 없습니다.");
-                return;
-            }
-
-            data.setExpiryTime(Long.MAX_VALUE);
-            abilityManager.savePlayerData(target.getUniqueId());
-            sender.sendMessage("[!] " + target.getName() + " 능력을 영구로 설정했습니다.");
-            target.sendMessage("[!] 능력 유지 기간이 영구로 설정되었습니다.");
+            target.getInventory().addItem(itemManager.createKeepPermanentTicket());
+            sender.sendMessage("[!] " + target.getName() + "에게 유지권 영구를 지급했습니다.");
+            target.sendMessage("[!] 능력 유지권 영구를 받았습니다.");
             return;
         }
 

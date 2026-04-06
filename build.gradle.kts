@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "org.kkaemok"
-version = "3.0-SNAPSHOT-20"
+version = "3.0-SNAPSHOT-21"
 
 repositories {
     mavenCentral()
@@ -36,10 +36,21 @@ dependencies {
     compileOnly("net.luckperms:api:5.4")
     compileOnly("net.dmulloy2:ProtocolLib:5.4.0")
     implementation("fr.mrmicky:fastboard:2.1.5")
+    implementation("org.bstats:bstats-bukkit:3.2.1")
 }
 
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
+    configurations = mutableListOf(project.configurations.runtimeClasspath.get() as org.gradle.api.file.FileCollection)
+
+    dependencies {
+        // Only merge bStats into the final jar, no other dependencies
+        exclude { it.moduleGroup != "org.bstats" }
+    }
+
+    // Relocate bStats into the plugin's package to avoid conflicts with other
+    // plugins using bStats
+    relocate("org.bstats", "org.kkaemok.reAbility.libs.bstats")
     relocate("fr.mrmicky.fastboard", "org.kkaemok.reAbility.libs.fastboard")
 }
 

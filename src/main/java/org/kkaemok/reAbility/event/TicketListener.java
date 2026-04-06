@@ -19,11 +19,13 @@ public class TicketListener implements Listener {
     private final AbilityManager abilityManager;
     private final NamespacedKey ticketKey;
     private final NamespacedKey keepDaysKey;
+    private final NamespacedKey keepPermanentKey;
 
     public TicketListener(ReAbility plugin, AbilityManager abilityManager) {
         this.abilityManager = abilityManager;
         this.ticketKey = new NamespacedKey(plugin, "reroll_ticket_type");
         this.keepDaysKey = new NamespacedKey(plugin, "ability_keep_days");
+        this.keepPermanentKey = new NamespacedKey(plugin, "ability_keep_permanent");
     }
 
     @EventHandler
@@ -32,57 +34,85 @@ public class TicketListener implements Listener {
         ItemStack item = event.getItem();
 
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (item == null || item.getType() != Material.PAPER) return;
-        if (!item.hasItemMeta()) return;
+        if (item == null || item.getType() != Material.PAPER || !item.hasItemMeta()) return;
 
         var meta = item.getItemMeta();
         var pdc = meta.getPersistentDataContainer();
         String ticketTypeName = pdc.get(ticketKey, PersistentDataType.STRING);
         Integer keepDays = pdc.get(keepDaysKey, PersistentDataType.INTEGER);
+        Byte keepPermanent = pdc.get(keepPermanentKey, PersistentDataType.BYTE);
 
-        if (ticketTypeName == null && keepDays == null) return;
+        if (ticketTypeName == null && keepDays == null && keepPermanent == null) return;
         event.setCancelled(true);
 
         if (ticketTypeName != null) {
             try {
                 RerollTicket ticket = RerollTicket.valueOf(ticketTypeName);
-
                 item.setAmount(item.getAmount() - 1);
                 abilityManager.useRerollTicket(player, ticket);
-
             } catch (IllegalArgumentException e) {
                 player.sendMessage("리롤권 타입이 올바르지 않습니다.");
             }
             return;
         }
 
-        if (keepDays != null) {
-            if (keepDays <= 0) {
-                player.sendMessage("유지 일수가 올바르지 않습니다.");
-                return;
-            }
-
-            PlayerData data = abilityManager.getPlayerData(player.getUniqueId());
-            if (data.getAbilityName() == null || data.isExpired()) {
-                player.sendMessage("현재 유지할 수 있는 능력이 없습니다.");
-                return;
-            }
-
-            if (data.getExpiryTime() == Long.MAX_VALUE) {
-                player.sendMessage("이미 영구 능력 상태입니다.");
-                return;
-            }
-
-            long addMillis = keepDays * 24L * 60 * 60 * 1000;
-            long currentExpiry = data.getExpiryTime();
-            long newExpiry = currentExpiry >= Long.MAX_VALUE - addMillis
-                    ? Long.MAX_VALUE
-                    : currentExpiry + addMillis;
-            data.setExpiryTime(newExpiry);
-            abilityManager.savePlayerData(player.getUniqueId());
-
-            item.setAmount(item.getAmount() - 1);
-            player.sendMessage("능력 유지 기간을 " + keepDays + "일 연장했습니다.");
+        if (keepPermanent != null) {
+            applyPermanentKeep(player, item);
+            return;
         }
+
+        if (keepDays != null) {
+            applyKeepDays(player, item, keepDays);
+        }
+    }
+
+    private void applyPermanentKeep(Player player, ItemStack item) {
+        PlayerData data = getActiveAbilityData(player);
+        if (data == null) return;
+
+        if (data.getExpiryTime() == Long.MAX_VALUE) {
+            player.sendMessage("이미 영구 능력 상태입니다.");
+            return;
+        }
+
+        data.setExpiryTime(Long.MAX_VALUE);
+        abilityManager.savePlayerData(player.getUniqueId());
+        item.setAmount(item.getAmount() - 1);
+        player.sendMessage("능력 유지 기간이 영구로 변경되었습니다.");
+    }
+
+    private void applyKeepDays(Player player, ItemStack item, int keepDays) {
+        if (keepDays <= 0) {
+            player.sendMessage("유지 일수가 올바르지 않습니다.");
+            return;
+        }
+
+        PlayerData data = getActiveAbilityData(player);
+        if (data == null) return;
+
+        if (data.getExpiryTime() == Long.MAX_VALUE) {
+            player.sendMessage("이미 영구 능력 상태입니다.");
+            return;
+        }
+
+        long addMillis = keepDays * 24L * 60 * 60 * 1000;
+        long currentExpiry = data.getExpiryTime();
+        long newExpiry = currentExpiry >= Long.MAX_VALUE - addMillis
+                ? Long.MAX_VALUE
+                : currentExpiry + addMillis;
+
+        data.setExpiryTime(newExpiry);
+        abilityManager.savePlayerData(player.getUniqueId());
+        item.setAmount(item.getAmount() - 1);
+        player.sendMessage("능력 유지 기간을 " + keepDays + "일 연장했습니다.");
+    }
+
+    private PlayerData getActiveAbilityData(Player player) {
+        PlayerData data = abilityManager.getPlayerData(player.getUniqueId());
+        if (data.getAbilityName() == null || data.isExpired()) {
+            player.sendMessage("현재 유지할 수 있는 능력이 없습니다.");
+            return null;
+        }
+        return data;
     }
 }
