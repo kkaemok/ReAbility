@@ -88,6 +88,10 @@ public class OnlySword extends AbilityBase {
 
         SkillCost onlySwordCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "only_sword", Material.DIAMOND_BLOCK, 5);
+        if ((item.getType() == onlySwordCost.getItem() || isSword(item.getType()))
+                && Disruptor.tryFailSkill(plugin, player)) {
+            return;
+        }
         if (item.getType() == onlySwordCost.getItem()) {
             if (now < onlySwordCooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("온리소드 쿨타임입니다.", NamedTextColor.RED));

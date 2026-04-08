@@ -154,6 +154,7 @@ public class Chronos extends AbilityBase {
 
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item.getType() != Material.NETHERITE_INGOT || item.getAmount() < SEVERANCE_COST) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         long now = System.currentTimeMillis();
         if (!checkCooldown(player, stopCooldown, now)) return;
@@ -213,6 +214,7 @@ public class Chronos extends AbilityBase {
         frozenPlayers.clear();
         Bukkit.getOnlinePlayers().stream()
                 .filter(p -> !p.equals(chronos))
+                .filter(p -> !isMichaelJack(p))
                 .forEach(p -> frozenPlayers.add(p.getUniqueId()));
 
         SkillParticles.chronosSeveranceBurst(chronos);
@@ -251,6 +253,10 @@ public class Chronos extends AbilityBase {
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
+        if (isMichaelJack(event.getPlayer())) {
+            frozenPlayers.remove(event.getPlayer().getUniqueId());
+            return;
+        }
         if (frozenPlayers.contains(event.getPlayer().getUniqueId()) && ensureTimeStopActive()) {
             Location from = event.getFrom();
             Location to = event.getTo();
@@ -264,6 +270,7 @@ public class Chronos extends AbilityBase {
     @EventHandler
     public void onAttack(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Player attacker
+                && !isMichaelJack(attacker)
                 && frozenPlayers.contains(attacker.getUniqueId())
                 && ensureTimeStopActive()) {
             event.setCancelled(true);
@@ -274,6 +281,10 @@ public class Chronos extends AbilityBase {
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
         ProjectileSource shooter = event.getEntity().getShooter();
         if (!(shooter instanceof Player player)) return;
+        if (isMichaelJack(player)) {
+            frozenPlayers.remove(player.getUniqueId());
+            return;
+        }
         if (!frozenPlayers.contains(player.getUniqueId())) return;
         if (!ensureTimeStopActive()) return;
         event.setCancelled(true);
@@ -308,6 +319,11 @@ public class Chronos extends AbilityBase {
 
     private boolean isHasAbility(Player player) {
         return getName().equals(plugin.getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName());
+    }
+
+    private boolean isMichaelJack(Player player) {
+        String ability = plugin.getAbilityManager().getPlayerData(player.getUniqueId()).getAbilityName();
+        return "MICHAEL_JACK".equals(ability);
     }
 
 }

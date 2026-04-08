@@ -26,6 +26,7 @@ public class Elementer extends AbilityBase {
     private final ReAbility plugin;
     private final GuildManager guildManager;
     private final Map<UUID, Long> waterCooldown = new HashMap<>();
+    private final Map<UUID, Long> fireCooldown = new HashMap<>();
     private final Map<UUID, Double> prevKnockback = new HashMap<>();
 
     public Elementer(ReAbility plugin, GuildManager guildManager) {
@@ -44,7 +45,7 @@ public class Elementer extends AbilityBase {
                 "스킬 {물의 힘}: 다이아 50개 소모, 물속에서",
                 "힘 3 + 저항 3 (1분, 쿨타임 3분).",
                 "스킬 {불의 힘}: 레드스톤 50개 소모,",
-                "주변 8칸 적에게 화염 + 데미지 30 + 구속 3, 어둠, 나약함 3 (10초)"
+                "주변 8칸 적에게 화염 + 데미지 30 + 구속 3, 어둠, 나약함 3 (10초, 쿨타임 2분)."
         };
     }
 
@@ -63,6 +64,10 @@ public class Elementer extends AbilityBase {
 
     @Override
     public void onDeactivate(Player player) {
+        UUID uuid = player.getUniqueId();
+        waterCooldown.remove(uuid);
+        fireCooldown.remove(uuid);
+
         player.removePotionEffect(PotionEffectType.WATER_BREATHING);
         player.removePotionEffect(PotionEffectType.FIRE_RESISTANCE);
         player.removePotionEffect(PotionEffectType.RESISTANCE);
@@ -70,7 +75,7 @@ public class Elementer extends AbilityBase {
 
         AttributeInstance knockback = player.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
         if (knockback != null) {
-            Double prev = prevKnockback.remove(player.getUniqueId());
+            Double prev = prevKnockback.remove(uuid);
             knockback.setBaseValue(prev != null ? prev : 0.0);
         }
     }
@@ -113,7 +118,14 @@ public class Elementer extends AbilityBase {
         SkillCost fireCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "fire", Material.REDSTONE, 50);
         if (fireCost.matchesHand(item)) {
+            if (now < fireCooldown.getOrDefault(player.getUniqueId(), 0L)) {
+                player.sendMessage(Component.text("불의 힘 쿨타임입니다.", NamedTextColor.RED));
+                return;
+            }
             if (!fireCost.consumeFromHand(player)) return;
+            long cooldownMs = plugin.getAbilityConfigManager()
+                    .getLong(getName(), "skills.fire.cooldown-ms", 120000L);
+            fireCooldown.put(player.getUniqueId(), now + cooldownMs);
             int range = plugin.getAbilityConfigManager()
                     .getInt(getName(), "skills.fire.range", 8);
             double damage = plugin.getAbilityConfigManager()

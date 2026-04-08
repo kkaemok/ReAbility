@@ -42,7 +42,7 @@ public class Ghost extends AbilityBase {
     public String[] getDescription() {
         return new String[]{
                 "24시간 스피드 2 효과 획득.",
-                "몹 처치 시 5초 동안 자유 비행 가능.",
+                "몹 처치 시 10초 동안 자유 비행 가능.",
                 "주변 10칸 내 플레이어가 있으면 투명(갑옷 포함).",
                 "스킬 {고스트}: 다이아 50개 소모, 20초 관전자",
                 "종료 후 힘 1 효과 획득 (쿨타임 5분)."
@@ -108,7 +108,7 @@ public class Ghost extends AbilityBase {
         if (!isHasAbility(player)) return;
 
         player.setAllowFlight(true);
-        player.sendMessage(Component.text("[!] 몹을 처치하여 5초 동안 비행이 가능합니다!", NamedTextColor.AQUA));
+        player.sendMessage(Component.text("[!] 몹을 처치하여 10초 동안 비행이 가능합니다!", NamedTextColor.AQUA));
 
         new BukkitRunnable() {
             @Override
@@ -118,7 +118,7 @@ public class Ghost extends AbilityBase {
                     player.sendMessage(Component.text("[!] 비행 시간이 종료되었습니다.", NamedTextColor.GRAY));
                 }
             }
-        }.runTaskLater(plugin, 100L);
+        }.runTaskLater(plugin, 200L);
     }
 
     @Override

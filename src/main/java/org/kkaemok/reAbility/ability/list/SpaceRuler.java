@@ -81,6 +81,7 @@ public class SpaceRuler extends AbilityBase {
         SkillCost moveCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "move", Material.NETHERITE_INGOT, 1);
         if (item.getType() == moveCost.getItem()) {
+            if (Disruptor.tryFailSkill(plugin, player)) return;
             if (now < skill1Cooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("공간 이동 쿨타임입니다.", NamedTextColor.RED));
                 return;
@@ -119,6 +120,7 @@ public class SpaceRuler extends AbilityBase {
         SkillCost cutCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "cut", Material.GOLD_BLOCK, 25);
         if (item.getType() == cutCost.getItem()) {
+            if (Disruptor.tryFailSkill(plugin, player)) return;
             if (now < skill2Cooldown.getOrDefault(player.getUniqueId(), 0L)) {
                 player.sendMessage(Component.text("공간 절단 쿨타임입니다.", NamedTextColor.RED));
                 return;

@@ -88,6 +88,7 @@ public class PhoenixII extends AbilityBase {
         SkillCost cost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "death_evade", Material.DIAMOND_BLOCK, 10);
         if (player.getInventory().getItemInMainHand().getType() != cost.getItem()) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         long now = System.currentTimeMillis();
         if (now < evadeCooldown.getOrDefault(player.getUniqueId(), 0L)) {

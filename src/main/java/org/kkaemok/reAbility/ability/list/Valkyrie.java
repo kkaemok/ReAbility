@@ -53,11 +53,11 @@ public class Valkyrie extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "도끼 공격 속도 45% 증가.",
+                "도끼 공격 속도 45% 감소.",
                 "스킬 {천사의 날개}: 네더라이트 파편 2개 우클릭",
                 "30초 비행 + 도끼 리치 10칸 증가, 힘2 10초 (쿨타임 2분)",
                 "스킬 {분노의 회오리}: 네더라이트 파편 3개 웅크림",
-                "주변 15칸 흡입, 중앙 적은 1초마다 35 피해 (쿨타임 3분)"
+                "주변 15칸 흡입, 중앙 적은 1초마다 25 피해 + 나약함2/구속5 5초 (쿨타임 3분)"
         };
     }
 
@@ -97,6 +97,7 @@ public class Valkyrie extends AbilityBase {
         SkillCost wingCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "wings", Material.NETHERITE_SCRAP, 2);
         if (player.getInventory().getItemInMainHand().getType() != wingCost.getItem()) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         long now = System.currentTimeMillis();
         if (now < wingCooldown.getOrDefault(player.getUniqueId(), 0L)) {

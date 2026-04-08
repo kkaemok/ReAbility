@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "org.kkaemok"
-version = "3.0-SNAPSHOT-21"
+version = "3.5-SNAPSHOT-1"
 
 repositories {
     mavenCentral()

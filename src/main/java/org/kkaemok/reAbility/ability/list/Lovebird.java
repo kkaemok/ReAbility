@@ -31,7 +31,7 @@ public class Lovebird extends AbilityBase {
     public String getName() { return "LOVEBIRD"; }
 
     @Override
-    public String getDisplayName() { return "Lovebird"; }
+    public String getDisplayName() { return "사랑꾼"; }
 
     @Override
     public AbilityGrade getGrade() { return AbilityGrade.C; }
@@ -39,9 +39,9 @@ public class Lovebird extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
-                "When near a guild member, both players receive buffs.",
-                "Applies Regeneration II and Strength I.",
-                "Effect applies to at most two players including yourself."
+                "길드원과 함께 붙어있으면 길드원과 자신에게 버프를 부여.",
+                "재생 2, 힘 1 효과 적용.",
+                "자신 포함 최대 2명까지만 버프 적용."
         };
     }
 

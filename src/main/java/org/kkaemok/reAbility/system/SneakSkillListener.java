@@ -12,6 +12,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.kkaemok.reAbility.ReAbility;
 import org.kkaemok.reAbility.ability.AbilityBase;
 import org.kkaemok.reAbility.ability.AbilityManager;
+import org.kkaemok.reAbility.ability.list.Disruptor;
 import org.kkaemok.reAbility.data.PlayerData;
 import org.kkaemok.reAbility.utils.AbilityTags;
 import org.kkaemok.reAbility.utils.InventoryUtils;
@@ -45,7 +46,9 @@ public class SneakSkillListener implements Listener {
         AbilityBase ability = abilityManager.getAbilityByName(abilityName);
         if (ability == null) return;
 
+        if (!hasSneakSkill(ability)) return;
         if (shouldBlockSneakSkill(player, ability)) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         ability.onSneakSkill(player);
     }

@@ -156,6 +156,7 @@ public class Beauty extends AbilityBase {
         SkillCost scentCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "scent", Material.DIAMOND, 60);
         if (item.getType() != scentCost.getItem()) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         long now = System.currentTimeMillis();
         if (now < scentCooldown.getOrDefault(player.getUniqueId(), 0L)) {

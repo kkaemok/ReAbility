@@ -67,13 +67,16 @@ public class Archangel extends AbilityBase {
     @Override
     public String[] getDescription() {
         return new String[]{
+                "신의 은총을 받은 대천사로서 권능을 가집니다.",
                 "플레이어 한 명의 HP 5칸을 빼앗아 원하는 사람에게 부여.",
-                "자신의 HP 한 줄 증가, 재생2/저항2 상시.",
-                "패시브 {대천사의 영혼}: 사망 시 즉시 부활 (쿨타임 24시간)",
-                "부활 후 10초 비행, 공격 불가.",
+                "자신의 HP 한 줄 증가, 재생 2/저항 2 상시.",
+                "패시브 {대천사의 영혼}: 사망 시 템을 잃지 않고 즉시 부활 (쿨타임 24시간)",
+                "부활 후 10초 비행 가능, 공격 불가.",
                 "스킬 {심판의 창}: 네더라이트 창 우클릭",
-                "10칸 앞 범위 적 HP 10 고정 피해, 처치 시 쿨타임 초기화",
-                "스킬 {천사의 날개짓}: 깃털 64개 우클릭, 1분간 바람 효과"
+                "10칸 앞 창 강림, 12칸 내 적 HP 10 고정 피해",
+                "처치 시 체력 전부 회복 + 스피드 3 1분, 쿨타임 초기화",
+                "생존 시 실명/구속4/멀미/나약함2 1분 부여 (쿨타임 3분)",
+                "스킬 {천사의 날개짓}: 깃털 64개 우클릭, 45칸 바람 1분"
         };
     }
 
@@ -215,6 +218,7 @@ public class Archangel extends AbilityBase {
         long now = System.currentTimeMillis();
 
         if (isNetheriteSpear(item.getType())) {
+            if (Disruptor.tryFailSkill(plugin, player)) return;
             if (isAttackLocked(player)) {
                 player.sendMessage(Component.text("부활 후 안정화 중에는 공격형 능력을 사용할 수 없습니다.", NamedTextColor.RED));
                 return;
@@ -266,6 +270,7 @@ public class Archangel extends AbilityBase {
         SkillCost wingCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "wingbeat", Material.FEATHER, 64);
         if (item.getType() != wingCost.getItem()) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
         if (isAttackLocked(player)) {
             player.sendMessage(Component.text("부활 후 안정화 중에는 공격형 능력을 사용할 수 없습니다.", NamedTextColor.RED));
             return;

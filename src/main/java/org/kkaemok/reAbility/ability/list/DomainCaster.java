@@ -66,9 +66,8 @@ public class DomainCaster extends AbilityBase {
         return new String[]{
                 "설정한 홈 기준 200칸이 자신의 영역입니다.",
                 "영역 내 버프: 힘2, 스피드3, 체력 2줄 증가.",
-                "영역확장: 철 블럭 20개 + 웅크리기, 30분 동안 영역 2000칸 (쿨 1시간).",
-                "확장 중에는 저항1이 추가됩니다.",
-                "영역표시: 다이아 블럭 10개 우클릭, 영역 내 적에게 피해 50 + 나약함3 + 구속3 (45초, 쿨 3분).",
+                "스킬 {영역확장}: 철 블럭 20개 웅크리기, 30분간 영역 500칸 + 저항1 (쿨 1시간).",
+                "스킬 {영역표시}: 다이아 블럭 10개 우클릭, 영역 내 적에게 피해 50 + 나약함3/구속3 45초 (쿨 3분).",
                 "홈 설정: /domainhome set 또는 /영역홈 설정"
         };
     }
@@ -139,6 +138,7 @@ public class DomainCaster extends AbilityBase {
         SkillCost markCost = plugin.getAbilityConfigManager()
                 .getSkillCost(getName(), "mark", Material.DIAMOND_BLOCK, 10);
         if (player.getInventory().getItemInMainHand().getType() != markCost.getItem()) return;
+        if (Disruptor.tryFailSkill(plugin, player)) return;
 
         long now = System.currentTimeMillis();
         long until = markCooldown.getOrDefault(player.getUniqueId(), 0L);

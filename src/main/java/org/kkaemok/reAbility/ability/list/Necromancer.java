@@ -216,6 +216,17 @@ public class Necromancer extends AbilityBase {
         PlayerData data = plugin.getAbilityManager().getPlayerData(player.getUniqueId());
         Material type = player.getInventory().getItemInMainHand().getType();
 
+        boolean tryingSkill =
+                (type == Material.NETHERITE_INGOT && hasSkill(data, NecromancerSkill.DEATH_KNIGHT))
+                        || (type == Material.DIAMOND_BLOCK && hasSkill(data, NecromancerSkill.SCULK_SOUL))
+                        || (type == Material.WITHER_ROSE && hasSkill(data, NecromancerSkill.DEATH_FLOWER))
+                        || (type == Material.NETHERITE_HOE && isEliteUnlocked(player, data))
+                        || (type == Material.AIR && isWardenForm(player));
+        if (tryingSkill && Disruptor.tryFailSkill(plugin, player)) {
+            event.setCancelled(true);
+            return;
+        }
+
         if (type == Material.NETHERITE_INGOT && hasSkill(data, NecromancerSkill.DEATH_KNIGHT)) {
             event.setCancelled(true);
             castSoulKnight(player, data);
