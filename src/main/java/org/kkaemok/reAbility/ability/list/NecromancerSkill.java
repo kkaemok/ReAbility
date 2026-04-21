@@ -40,6 +40,7 @@ public enum NecromancerSkill {
         return icon;
     }
 
+    //kkaemok is working very hard on this
     public static NecromancerSkill fromKey(String key) {
         if (key == null || key.isBlank()) return null;
         String normalized = key.toLowerCase(Locale.ROOT);

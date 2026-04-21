@@ -67,7 +67,7 @@ public class MilkEffectListener implements Listener {
         if (ability == null) return;
 
         AbilityGrade grade = ability.getGrade();
-        if (grade == AbilityGrade.S || grade == AbilityGrade.S_PLUS || grade == AbilityGrade.SS) {
+        if (grade.isAtLeast(AbilityGrade.S)) {
             applyEffect(player, PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0);
             applyEffect(player, PotionEffectType.REGENERATION, PotionEffect.INFINITE_DURATION, 0);
         }

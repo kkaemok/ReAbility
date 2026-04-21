@@ -89,6 +89,17 @@ public class AbilityManager {
                     }
                 }
                 data.setDomainHome(playerConfig.getString(path + "domain-home"));
+                data.setHomeLimit(playerConfig.getInt(path + "home-limit", 1));
+                ConfigurationSection homesSection = playerConfig.getConfigurationSection(path + "homes");
+                if (homesSection != null) {
+                    Map<String, String> loadedHomes = new HashMap<>();
+                    for (String homeName : homesSection.getKeys(false)) {
+                        String rawLocation = homesSection.getString(homeName);
+                        if (rawLocation == null || rawLocation.isBlank()) continue;
+                        loadedHomes.put(homeName, rawLocation);
+                    }
+                    data.setHomes(loadedHomes);
+                }
                 int legacySoulCount = playerConfig.getInt(path + "souls", 0);
                 data.setSoulCount(legacySoulCount);
                 List<Long> soulExpiries = playerConfig.getLongList(path + "soul-expiries");
@@ -139,6 +150,7 @@ public class AbilityManager {
         register(new SoloLeveler(plugin));
         register(new Puppy(plugin));
         register(new Lovebird(plugin, plugin.getGuildManager()));
+        register(new Fairy(plugin));
         register(new Zombie());
         register(new Bomber(plugin));
         register(new TreasureAppraiser(plugin));
@@ -156,6 +168,7 @@ public class AbilityManager {
         register(new SpaceRuler(plugin));
         register(new Beauty(plugin));
         register(new Demon(plugin));
+        register(new MagicSwordsman(plugin));
         register(new OnlySword(plugin));
         register(new PhoenixII(plugin));
         register(new DomainCaster(plugin));
@@ -164,6 +177,7 @@ public class AbilityManager {
         register(new Chronos(plugin));
         register(new Archangel(plugin));
         register(new Necromancer(plugin));
+        register(new CuteCute(plugin));
     }
 
     @SuppressWarnings("unused")
@@ -193,6 +207,7 @@ public class AbilityManager {
     public void assignAbilityByGrade(Player player, AbilityGrade grade) {
         List<AbilityBase> possibleAbilities = registeredAbilities.values().stream()
                 .filter(a -> a.getGrade() == grade)
+                .filter(this::isRandomAssignable)
                 .toList();
 
         if (possibleAbilities.isEmpty()) {
@@ -321,7 +336,7 @@ public class AbilityManager {
     }
 
     private boolean isHighGrade(AbilityGrade grade) {
-        return grade == AbilityGrade.S || grade == AbilityGrade.S_PLUS || grade == AbilityGrade.SS;
+        return grade.isAtLeast(AbilityGrade.S);
     }
 
     private void applyHighGradeBuffs(Player player) {
@@ -344,6 +359,34 @@ public class AbilityManager {
 
     public Collection<AbilityBase> getAllAbilities() {
         return Collections.unmodifiableCollection(registeredAbilities.values());
+    }
+
+    public boolean isVisibleInList(AbilityBase ability) {
+        if (ability == null) return false;
+        return plugin.getAbilityConfigManager().getBoolean(
+                ability.getName(), "info.show-in-list", ability.isDefaultVisibleInList());
+    }
+
+    public boolean isVisibleInDescription(AbilityBase ability) {
+        if (ability == null) return false;
+        return plugin.getAbilityConfigManager().getBoolean(
+                ability.getName(), "info.show-in-description", ability.isDefaultVisibleInDescription());
+    }
+
+    public boolean isRandomAssignable(AbilityBase ability) {
+        if (ability == null) return false;
+        return plugin.getAbilityConfigManager().getBoolean(
+                ability.getName(), "info.random-assignable", ability.isDefaultRandomAssignable());
+    }
+
+    public void setListVisibility(AbilityBase ability, boolean visible) {
+        if (ability == null) return;
+        plugin.getAbilityConfigManager().setBoolean(ability.getName(), "info.show-in-list", visible);
+    }
+
+    public void setDescriptionVisibility(AbilityBase ability, boolean visible) {
+        if (ability == null) return;
+        plugin.getAbilityConfigManager().setBoolean(ability.getName(), "info.show-in-description", visible);
     }
 
     public void savePlayerData(UUID uuid) {
@@ -371,7 +414,14 @@ public class AbilityManager {
         playerConfig.set(path + "mined-debris", data.getMinedDebris());
         playerConfig.set(path + "last-debris-reset", data.getLastDebrisReset());
         playerConfig.set(path + "dog-owner", data.getDogOwnerUuid() != null ? data.getDogOwnerUuid().toString() : null);
-        playerConfig.set(path + "domain-home", data.getDomainHome());
+        String domainHome = data.getDomainHome();
+        playerConfig.set(path + "domain-home", domainHome);
+        playerConfig.set(path + "home-limit", data.getHomeLimit());
+        String homesPath = path + "homes";
+        playerConfig.set(homesPath, null);
+        for (Map.Entry<String, String> homeEntry : data.getHomes().entrySet()) {
+            playerConfig.set(homesPath + "." + homeEntry.getKey(), homeEntry.getValue());
+        }
         data.purgeExpiredSouls();
         playerConfig.set(path + "souls", data.getSoulCount());
         playerConfig.set(path + "soul-expiries", data.getSoulExpiries());

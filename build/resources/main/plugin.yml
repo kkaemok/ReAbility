@@ -1,7 +1,7 @@
 name: ReAbility
-version: '3.0-SNAPSHOT-21'
+version: '3.5-SNAPSHOT-2'
 author: kkaemok
-description: 플레이어에게 능력을 부여하는 플러그인입니다.
+description: 다양한 능력 시스템을 기반으로 PvP와 생존 요소를 확장하는 마인크래프트 능력 플러그인.
 main: org.kkaemok.reAbility.ReAbility
 api-version: '1.21'
 depend: [LuckPerms, ProtocolLib]
@@ -40,10 +40,26 @@ commands:
     description: 네크로맨서 영혼 명령어
     usage: /영혼 <상점|상태>
     aliases: [영혼]
-  domainhome:
-    description: 영역술사 홈 명령어
-    usage: /영역홈 <설정|정보|초기화>
-    aliases: [영역홈]
+  sethome:
+    description: 홈 설정 명령어
+    usage: /sethome <이름>
+    aliases: [홈설정]
+  home:
+    description: 홈 이동 명령어
+    usage: /home <이름>
+    aliases: [홈]
+  delhome:
+    description: 홈 삭제 명령어
+    usage: /delhome <이름>
+    aliases: [홈삭제]
+  homelist:
+    description: 홈 목록 명령어
+    usage: /homelist
+    aliases: [홈목록]
+  homeadd:
+    description: 홈 제한 추가 명령어
+    usage: /homeadd <플레이어>
+    aliases: [홈셋추가]
   guild:
     description: 길드 관리 명령어
     usage: /길드 <하위명령어>

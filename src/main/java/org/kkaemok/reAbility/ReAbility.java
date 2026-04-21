@@ -10,10 +10,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.kkaemok.reAbility.ability.AbilityConfigManager;
 import org.kkaemok.reAbility.ability.AbilityManager;
 import org.kkaemok.reAbility.command.AdminAbilityCommand;
-import org.kkaemok.reAbility.command.DomainHomeCommand;
+import org.kkaemok.reAbility.command.CuteCuteCommand;
+import org.kkaemok.reAbility.command.DeleteHomeCommand;
 import org.kkaemok.reAbility.command.GuildCommand;
+import org.kkaemok.reAbility.command.HomeCommand;
+import org.kkaemok.reAbility.command.HomeLimitAddCommand;
+import org.kkaemok.reAbility.command.HomeListCommand;
 import org.kkaemok.reAbility.command.OwnerCommand;
 import org.kkaemok.reAbility.command.PlayerAbilityCommand;
+import org.kkaemok.reAbility.command.SetHomeCommand;
 import org.kkaemok.reAbility.command.ShopCommand;
 import org.kkaemok.reAbility.command.SoulCommand;
 import org.kkaemok.reAbility.command.TeleportCommand;
@@ -54,7 +59,6 @@ public class ReAbility extends JavaPlugin {
     private ShopMenu shopMenu;
     private UserMarketManager userMarketManager;
     private SoulCommand soulCommand;
-    private DomainHomeCommand domainHomeCommand;
 
     @Override
     public void onEnable() {
@@ -69,7 +73,6 @@ public class ReAbility extends JavaPlugin {
             this.shopMenu = new ShopMenu(this, abilityManager);
             this.userMarketManager = new UserMarketManager(this, abilityManager);
             this.soulCommand = new SoulCommand(this, abilityManager);
-            this.domainHomeCommand = new DomainHomeCommand(abilityManager);
             this.scoreboard = new ReAbilityScoreboard(this, abilityManager, guildManager);
             NicknamesBridge.initialize(this);
 
@@ -106,6 +109,10 @@ public class ReAbility extends JavaPlugin {
             Objects.requireNonNull(getCommand("ability")).setExecutor(playerCmd);
             Objects.requireNonNull(getCommand("ability")).setTabCompleter(playerCmd);
 
+            CuteCuteCommand cuteCuteCommand = new CuteCuteCommand(abilityManager);
+            Objects.requireNonNull(getCommand("cutecute")).setExecutor(cuteCuteCommand);
+            Objects.requireNonNull(getCommand("cutecute")).setTabCompleter(cuteCuteCommand);
+
             OwnerCommand ownerCmd = new OwnerCommand(abilityManager);
             Objects.requireNonNull(getCommand("owner")).setExecutor(ownerCmd);
             Objects.requireNonNull(getCommand("owner")).setTabCompleter(ownerCmd);
@@ -124,8 +131,25 @@ public class ReAbility extends JavaPlugin {
             Objects.requireNonNull(getCommand("soul")).setExecutor(soulCommand);
             Objects.requireNonNull(getCommand("soul")).setTabCompleter(soulCommand);
 
-            Objects.requireNonNull(getCommand("domainhome")).setExecutor(domainHomeCommand);
-            Objects.requireNonNull(getCommand("domainhome")).setTabCompleter(domainHomeCommand);
+            SetHomeCommand setHomeCmd = new SetHomeCommand(abilityManager);
+            Objects.requireNonNull(getCommand("sethome")).setExecutor(setHomeCmd);
+            Objects.requireNonNull(getCommand("sethome")).setTabCompleter(setHomeCmd);
+
+            HomeCommand homeCmd = new HomeCommand(abilityManager);
+            Objects.requireNonNull(getCommand("home")).setExecutor(homeCmd);
+            Objects.requireNonNull(getCommand("home")).setTabCompleter(homeCmd);
+
+            DeleteHomeCommand deleteHomeCmd = new DeleteHomeCommand(abilityManager);
+            Objects.requireNonNull(getCommand("delhome")).setExecutor(deleteHomeCmd);
+            Objects.requireNonNull(getCommand("delhome")).setTabCompleter(deleteHomeCmd);
+
+            HomeListCommand homeListCmd = new HomeListCommand(abilityManager);
+            Objects.requireNonNull(getCommand("homelist")).setExecutor(homeListCmd);
+            Objects.requireNonNull(getCommand("homelist")).setTabCompleter(homeListCmd);
+
+            HomeLimitAddCommand homeAddCmd = new HomeLimitAddCommand(abilityManager);
+            Objects.requireNonNull(getCommand("homeadd")).setExecutor(homeAddCmd);
+            Objects.requireNonNull(getCommand("homeadd")).setTabCompleter(homeAddCmd);
 
             GuildCommand guildCmd = new GuildCommand(guildManager);
             Objects.requireNonNull(getCommand("guild")).setExecutor(guildCmd);

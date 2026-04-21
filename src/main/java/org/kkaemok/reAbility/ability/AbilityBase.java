@@ -19,6 +19,21 @@ public abstract class AbilityBase implements Listener {
     // 능력 설명 (Lore)
     public abstract String[] getDescription();
 
+    // 기본 리스트 노출 여부
+    public boolean isDefaultVisibleInList() {
+        return true;
+    }
+
+    // 기본 설명 노출 여부
+    public boolean isDefaultVisibleInDescription() {
+        return true;
+    }
+
+    // 기본 랜덤 배정 가능 여부
+    public boolean isDefaultRandomAssignable() {
+        return true;
+    }
+
     // 능력이 활성화될 때 (접속, 뽑기 등) 실행
     public void onActivate(Player player) {
         // 기본적으로 메시지를 보내거나 초기 버프를 줌

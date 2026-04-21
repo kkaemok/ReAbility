@@ -7,7 +7,8 @@ public enum AbilityGrade {
     A("A", 2),
     S("S", 3),
     S_PLUS("S+", 4),
-    SS("SS", 5);
+    SS("SS", 5),
+    H("H", 1);
 
     private final String label;
     private final int durationDays;
@@ -23,5 +24,9 @@ public enum AbilityGrade {
 
     public long getDurationInMillis() {
         return (long) durationDays * 24 * 60 * 60 * 1000;
+    }
+
+    public boolean isAtLeast(AbilityGrade other) {
+        return this.ordinal() >= other.ordinal();
     }
 }

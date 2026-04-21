@@ -40,6 +40,18 @@ public class AbilityConfigManager {
                 config.set("info.grade", ability.getGrade().name());
                 changed = true;
             }
+            if (!config.contains("info.show-in-list")) {
+                config.set("info.show-in-list", ability.isDefaultVisibleInList());
+                changed = true;
+            }
+            if (!config.contains("info.show-in-description")) {
+                config.set("info.show-in-description", ability.isDefaultVisibleInDescription());
+                changed = true;
+            }
+            if (!config.contains("info.random-assignable")) {
+                config.set("info.random-assignable", ability.isDefaultRandomAssignable());
+                changed = true;
+            }
             if (changed) {
                 save(key);
             }
@@ -96,6 +108,12 @@ public class AbilityConfigManager {
             save(abilityName);
         }
         return config.getBoolean(path, def);
+    }
+
+    public void setBoolean(String abilityName, String path, boolean value) {
+        FileConfiguration config = getConfig(abilityName);
+        config.set(path, value);
+        save(abilityName);
     }
 
     public String getString(String abilityName, String path, String def) {

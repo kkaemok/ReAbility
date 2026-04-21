@@ -25,6 +25,8 @@ public class PlayerData {
     private int soulCount;
     private final ArrayDeque<Long> soulExpiries;
     private final Map<String, Integer> soulInvestments;
+    private final Map<String, String> homes;
+    private int homeLimit;
     private long coins;
     private long playtimeHoursRewarded;
 
@@ -43,6 +45,8 @@ public class PlayerData {
         this.soulCount = 0;
         this.soulExpiries = new ArrayDeque<>();
         this.soulInvestments = new HashMap<>();
+        this.homes = new HashMap<>();
+        this.homeLimit = 1;
         this.coins = 0L;
         this.playtimeHoursRewarded = -1L;
     }
@@ -186,6 +190,84 @@ public class PlayerData {
     public void setSoulInvestment(String skillKey, int value) {
         if (skillKey == null || skillKey.isBlank()) return;
         soulInvestments.put(skillKey, Math.max(0, value));
+    }
+
+    public int getHomeLimit() {
+        return Math.max(1, homeLimit);
+    }
+
+    public void setHomeLimit(int homeLimit) {
+        this.homeLimit = Math.max(1, homeLimit);
+    }
+
+    public void addHomeLimit(int amount) {
+        if (amount <= 0) return;
+        setHomeLimit(getHomeLimit() + amount);
+    }
+
+    public int getHomeCount() {
+        return homes.size();
+    }
+
+    public Map<String, String> getHomes() {
+        return Collections.unmodifiableMap(homes);
+    }
+
+    public void setHomes(Map<String, String> value) {
+        homes.clear();
+        if (value == null || value.isEmpty()) return;
+        for (Map.Entry<String, String> entry : value.entrySet()) {
+            String name = normalizeHomeName(entry.getKey());
+            String location = entry.getValue();
+            if (name == null || location == null || location.isBlank()) continue;
+            homes.put(name, location);
+        }
+    }
+
+    public boolean hasHome(String name) {
+        return findHomeKey(name) != null;
+    }
+
+    public String getHome(String name) {
+        String key = findHomeKey(name);
+        if (key == null) return null;
+        return homes.get(key);
+    }
+
+    public void setHome(String name, String location) {
+        String normalized = normalizeHomeName(name);
+        if (normalized == null || location == null || location.isBlank()) return;
+
+        String existing = findHomeKey(normalized);
+        homes.put(existing == null ? normalized : existing, location);
+    }
+
+    public boolean removeHome(String name) {
+        String key = findHomeKey(name);
+        if (key == null) return false;
+        homes.remove(key);
+        return true;
+    }
+
+    public List<String> getHomeNames() {
+        return new ArrayList<>(homes.keySet());
+    }
+
+    private String normalizeHomeName(String input) {
+        if (input == null) return null;
+        String trimmed = input.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String findHomeKey(String input) {
+        String normalized = normalizeHomeName(input);
+        if (normalized == null) return null;
+        for (String key : homes.keySet()) {
+            if (key.equalsIgnoreCase(normalized)) {
+                return key;
+            }
+        }
+        return null;
     }
 
     public long getCoins() { return coins; }

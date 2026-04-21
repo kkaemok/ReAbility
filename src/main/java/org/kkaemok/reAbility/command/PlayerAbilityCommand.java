@@ -91,6 +91,11 @@ public class PlayerAbilityCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (!abilityManager.isVisibleInDescription(ability)) {
+            player.sendMessage("해당 능력을 찾을 수 없습니다.");
+            return;
+        }
+
         player.sendMessage("============");
         player.sendMessage("능력: " + ability.getDisplayName());
         player.sendMessage("등급: " + ability.getGrade().getLabel());
@@ -104,6 +109,7 @@ public class PlayerAbilityCommand implements CommandExecutor, TabCompleter {
     private void handleList(Player player) {
         Map<AbilityGrade, List<String>> byGrade = new EnumMap<>(AbilityGrade.class);
         for (AbilityBase ability : abilityManager.getAllAbilities()) {
+            if (!abilityManager.isVisibleInList(ability)) continue;
             byGrade.computeIfAbsent(ability.getGrade(), k -> new ArrayList<>())
                     .add(ability.getDisplayName());
         }
@@ -210,6 +216,7 @@ public class PlayerAbilityCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == startIndex + 1) {
             for (AbilityBase ability : abilities) {
+                if (!abilityManager.isVisibleInDescription(ability)) continue;
                 String key = ability.getName();
                 if (StringUtil.startsWithIgnoreCase(key, current)) results.add(key);
 
@@ -227,6 +234,7 @@ public class PlayerAbilityCommand implements CommandExecutor, TabCompleter {
 
         String[] typed = Arrays.copyOfRange(args, startIndex, args.length - 1);
         for (AbilityBase ability : abilities) {
+            if (!abilityManager.isVisibleInDescription(ability)) continue;
             String[] tokens = ability.getDisplayName().split("\\s+");
             if (tokens.length <= typed.length) continue;
 

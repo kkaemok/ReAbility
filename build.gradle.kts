@@ -1,4 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 
@@ -9,7 +10,7 @@ plugins {
 }
 
 group = "org.kkaemok"
-version = "3.5-SNAPSHOT-1"
+version = "3.5-SNAPSHOT-3"
 
 repositories {
     mavenCentral()
@@ -41,11 +42,15 @@ dependencies {
 
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
-    configurations = mutableListOf(project.configurations.runtimeClasspath.get() as org.gradle.api.file.FileCollection)
+    configurations = mutableListOf(project.configurations.runtimeClasspath.get() as FileCollection)
 
     dependencies {
-        // Only merge bStats into the final jar, no other dependencies
-        exclude { it.moduleGroup != "org.bstats" }
+        // Merge only shaded runtime libraries used by this plugin.
+        exclude {
+            val isBstats = it.moduleGroup == "org.bstats"
+            val isFastBoard = it.moduleGroup == "fr.mrmicky" && it.moduleName == "fastboard"
+            !(isBstats || isFastBoard)
+        }
     }
 
     // Relocate bStats into the plugin's package to avoid conflicts with other

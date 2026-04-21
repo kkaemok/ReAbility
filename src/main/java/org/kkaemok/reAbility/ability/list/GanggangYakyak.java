@@ -99,10 +99,7 @@ public class GanggangYakyak extends AbilityBase {
     private boolean isGradeAOrHigher(Player player) {
         AbilityGrade grade = getPlayerAbilityGrade(player);
         if (grade == null) return false;
-        return grade == AbilityGrade.A
-                || grade == AbilityGrade.S
-                || grade == AbilityGrade.S_PLUS
-                || grade == AbilityGrade.SS;
+        return grade.isAtLeast(AbilityGrade.A);
     }
 
     private AbilityGrade getPlayerAbilityGrade(Player player) {
